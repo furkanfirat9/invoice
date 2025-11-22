@@ -6,7 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function Header() {
   const { language, setLanguage, t } = useLanguage();
-  const { data: session } = useSession();
+  const { data: session } = useSession() || {};
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
 
   // Kullanıcı adını role göre belirle
