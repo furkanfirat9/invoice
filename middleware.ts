@@ -1,17 +1,17 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
-import { UserRole } from "@prisma/client";
 
 export default withAuth(
   function middleware(req) {
-    const { token } = req.nextauth;
+    const token = req.nextauth.token;
     const pathname = req.nextUrl.pathname;
+    const userRole = token?.role as string | undefined;
 
     // Seller rotaları koruması
     if (pathname.startsWith("/dashboard")) {
-      if (token?.role !== UserRole.SELLER) {
+      if (userRole !== "SELLER") {
         // Yetkisiz erişim - carrier ise kendi paneline, değilse login'e
-        if (token?.role === UserRole.CARRIER) {
+        if (userRole === "CARRIER") {
           return NextResponse.redirect(new URL("/carrier", req.url));
         }
         return NextResponse.redirect(new URL("/login", req.url));
@@ -20,9 +20,9 @@ export default withAuth(
 
     // Carrier rotaları koruması
     if (pathname.startsWith("/carrier")) {
-      if (token?.role !== UserRole.CARRIER) {
+      if (userRole !== "CARRIER") {
         // Yetkisiz erişim - seller ise kendi paneline, değilse login'e
-        if (token?.role === UserRole.SELLER) {
+        if (userRole === "SELLER") {
           return NextResponse.redirect(new URL("/dashboard", req.url));
         }
         return NextResponse.redirect(new URL("/login", req.url));
