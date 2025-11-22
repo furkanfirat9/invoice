@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { put, del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 
 // ETGB bilgilerini getir
@@ -107,6 +107,55 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, etgb: invoice });
   } catch (error) {
     console.error("ETGB yükleme hatası:", error);
+    return NextResponse.json(
+      { error: "Sunucu hatası" },
+      { status: 500 }
+    );
+  }
+}
+
+// ETGB sil
+export async function DELETE(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const postingNumber = searchParams.get("postingNumber");
+
+    if (!postingNumber) {
+      return NextResponse.json(
+        { error: "Posting number gereklidir" },
+        { status: 400 }
+      );
+    }
+
+    // Önce mevcut kaydı bulup URL'i alalım
+    const existingInvoice = await prisma.invoice.findUnique({
+      where: { postingNumber },
+      select: { etgbPdfUrl: true }
+    });
+
+    if (existingInvoice?.etgbPdfUrl) {
+      try {
+        // Blob'dan sil
+        await del(existingInvoice.etgbPdfUrl);
+      } catch (blobError) {
+        console.error("Blob silme hatası:", blobError);
+        // Blob silinemese bile veritabanından silmeye devam et
+      }
+    }
+
+    // Veritabanında ETGB alanlarını temizle
+    const invoice = await prisma.invoice.update({
+      where: { postingNumber },
+      data: {
+        etgbPdfUrl: null,
+        etgbDate: null,
+        etgbNumber: null,
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("ETGB silme hatası:", error);
     return NextResponse.json(
       { error: "Sunucu hatası" },
       { status: 500 }

@@ -5,18 +5,20 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useOzonOrders } from "@/hooks/useOzonOrders";
 import { OzonPosting } from "@/types/ozon";
 import ShipmentDetailModal from "@/components/ShipmentDetailModal";
+import { exportToExcel, exportToCSV } from "@/lib/exportUtils";
+import countries from "world-countries";
 
 export default function DashboardPage() {
   const { t } = useLanguage();
   const { orders, loading, error, fetchOrders } = useOzonOrders();
-  
+
   const [startDate, setStartDate] = useState<Date>(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30); // Son 1 ay (30 gün önce)
     d.setHours(0, 0, 0, 0);
     return d;
   });
-  
+
   const [endDate, setEndDate] = useState<Date>(() => {
     const d = new Date();
     d.setHours(23, 59, 59, 999);
@@ -43,15 +45,15 @@ export default function DashboardPage() {
   const itemsPerPage = 10;
   const [selectedOrder, setSelectedOrder] = useState<OzonPosting | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  
+
   // Hangi siparişlerin fatura kaydı var
-  const [invoiceRecords, setInvoiceRecords] = useState<Set<string>>(new Set());
-  
+  const [invoiceRecords, setInvoiceRecords] = useState<Map<string, any>>(new Map());
+
   // Sipariş için fatura kaydı var mı kontrol et
   const hasInvoiceRecord = (postingNumber: string) => {
     return invoiceRecords.has(postingNumber);
   };
-  
+
   // Invoice kayıtlarını yükle
   useEffect(() => {
     // Tüm siparişler için invoice kayıtlarını kontrol et
@@ -59,9 +61,9 @@ export default function DashboardPage() {
       const postingNumbers = orders.map(
         (order) => order.posting_number || order.order_number
       ).filter(Boolean) as string[];
-      
-      const invoiceSet = new Set<string>();
-      
+
+      const invoiceMap = new Map<string, any>();
+
       // Her posting number için invoice kontrolü yap
       await Promise.all(
         postingNumbers.map(async (postingNumber) => {
@@ -70,17 +72,17 @@ export default function DashboardPage() {
             const data = await res.json();
             // Sadece invoice var VE pdfUrl var ise VAR olarak işaretle
             if (data.invoice && data.invoice.pdfUrl) {
-              invoiceSet.add(postingNumber);
+              invoiceMap.set(postingNumber, data.invoice);
             }
           } catch (error) {
             console.error(`Invoice kontrolü hatası (${postingNumber}):`, error);
           }
         })
       );
-      
-      setInvoiceRecords(invoiceSet);
+
+      setInvoiceRecords(invoiceMap);
     };
-    
+
     if (orders.length > 0) {
       checkInvoices();
     }
@@ -90,7 +92,7 @@ export default function DashboardPage() {
     // Eğer spesifik bir arama yapılıyorsa (Takip No, Gönderi No veya Genel Arama)
     // Tarih kısıtlamasını kaldırıp geniş bir aralıkta ara (Son 1 yıl)
     const hasSearchQuery = filterCwbCode || filterReferenceCode || searchTerm;
-    
+
     let searchStartDate: Date;
     let searchEndDate: Date;
 
@@ -100,7 +102,7 @@ export default function DashboardPage() {
       d.setFullYear(d.getFullYear() - 1);
       d.setHours(0, 0, 0, 0);
       searchStartDate = d;
-      
+
       const end = new Date();
       end.setHours(23, 59, 59, 999);
       searchEndDate = end;
@@ -161,18 +163,18 @@ export default function DashboardPage() {
     try {
       // ISO 8601 formatındaki tarihleri parse et
       const date = new Date(dateString);
-      
+
       // Geçerli tarih kontrolü
       if (isNaN(date.getTime())) {
         console.warn("Geçersiz tarih:", dateString);
         return "";
       }
-      
+
       // Tarih formatını kontrol et ve düzelt (DD.MM.YYYY)
       const day = String(date.getDate()).padStart(2, "0");
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const year = date.getFullYear();
-      
+
       return `${day}.${month}.${year}`;
     } catch (error) {
       console.error("Tarih formatlama hatası:", error, dateString);
@@ -226,7 +228,7 @@ export default function DashboardPage() {
         // in_process_at ISO formatında geliyor (örn: "2025-11-11T06:00:00Z")
         // Tarih kısmını al (YYYY-MM-DD)
         const orderDateStr = processDate.split('T')[0];
-        
+
         if (filterStartDate) {
           const startDateStr = formatDateForInput(filterStartDate);
           // String karşılaştırması (YYYY-MM-DD formatı lexicographic olarak karşılaştırılabilir)
@@ -234,7 +236,7 @@ export default function DashboardPage() {
             return false;
           }
         }
-        
+
         if (filterEndDate) {
           const endDateStr = formatDateForInput(filterEndDate);
           if (orderDateStr > endDateStr) {
@@ -280,6 +282,113 @@ export default function DashboardPage() {
       setCurrentPage(page);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+  };
+
+  // Dışa Aktırma Fonksiyonları
+  const handleExportExcel = () => {
+    const categoryNames: Record<string, string> = {
+      "shaving-machine": "Tıraş Makinesi",
+      "steam-iron": "Buharlı/Kazanlı Ütü",
+      "epilator": "Epilatör",
+      "hair-straightener": "Saç Düzleştirici",
+      "hair-dryer": "Saç Kurutma Makinesi",
+      "hair-styler": "Saç Şekillendirici",
+      "deep-fryer": "Fritöz",
+      "coffee-machine": "Kahve Makinesi",
+      "tablet": "Tablet",
+      "robot-vacuum": "Robot/Şarjlı Süpürge",
+      "kettle": "Kettle",
+      "blender": "Blender",
+      "toaster": "Ekmek Kızartma",
+      "electric-vacuum": "Elektrikli Süpürge",
+    };
+
+    const data = filteredOrders.map((order, index) => {
+      const postingNumber = order.posting_number || order.order_number || "";
+      const invoice = invoiceRecords.get(postingNumber);
+
+      let countryName = "-";
+      if (invoice?.countryOfOrigin) {
+        const country = countries.find(c => c.cca2 === invoice.countryOfOrigin);
+        countryName = country ? country.name.common : invoice.countryOfOrigin;
+      }
+
+      return {
+        [t("id")]: index + 1,
+        [t("cwb")]: order.tracking_number || "-",
+        [t("reference")]: postingNumber || "-",
+        [t("tableRecipientName")]: order.customer?.name || "-",
+        [t("city")]: order.analytics_data?.city || "-",
+        [t("tableDate")]: formatDate(order.in_process_at),
+        [t("tableStatus")]: order.status === 'cancelled' ? t("statusCancel") : t("notCancel"),
+        [t("tableInvoice")]: invoice ? t("exists") : t("none"),
+        [t("invoiceNumber")]: invoice?.invoiceNumber || "-",
+        [t("invoiceDate")]: invoice?.invoiceDate ? formatDate(invoice.invoiceDate) : "-",
+        [t("amount")]: invoice ? `${invoice.amount} ${invoice.currencyType}` : "-",
+        [t("currencyType")]: invoice?.currencyType || "-",
+        [t("productCategory")]: invoice?.productCategory ? (categoryNames[invoice.productCategory] || invoice.productCategory) : "-",
+        [t("gtipCode")]: invoice?.gtipCode || "-",
+        [t("countryOfOrigin")]: countryName,
+        [t("invoicePdfFile")]: invoice?.pdfUrl || "-",
+        [t("etgbPdfFile")]: invoice?.etgbPdfUrl || "-",
+        [t("productInfo")]: order.products?.map(p => p.name).join(" | ") || "-",
+        [t("productQuantity")]: order.products?.map(p => p.quantity).join(" | ") || "-",
+      };
+    });
+    exportToExcel(data, "Sevkiyatlar_Seller");
+  };
+
+  const handleExportCSV = () => {
+    const categoryNames: Record<string, string> = {
+      "shaving-machine": "Tıraş Makinesi",
+      "steam-iron": "Buharlı/Kazanlı Ütü",
+      "epilator": "Epilatör",
+      "hair-straightener": "Saç Düzleştirici",
+      "hair-dryer": "Saç Kurutma Makinesi",
+      "hair-styler": "Saç Şekillendirici",
+      "deep-fryer": "Fritöz",
+      "coffee-machine": "Kahve Makinesi",
+      "tablet": "Tablet",
+      "robot-vacuum": "Robot/Şarjlı Süpürge",
+      "kettle": "Kettle",
+      "blender": "Blender",
+      "toaster": "Ekmek Kızartma",
+      "electric-vacuum": "Elektrikli Süpürge",
+    };
+
+    const data = filteredOrders.map((order, index) => {
+      const postingNumber = order.posting_number || order.order_number || "";
+      const invoice = invoiceRecords.get(postingNumber);
+
+      let countryName = "-";
+      if (invoice?.countryOfOrigin) {
+        const country = countries.find(c => c.cca2 === invoice.countryOfOrigin);
+        countryName = country ? country.name.common : invoice.countryOfOrigin;
+      }
+
+      return {
+        [t("id")]: index + 1,
+        [t("cwb")]: order.tracking_number || "-",
+        [t("reference")]: postingNumber || "-",
+        [t("tableRecipientName")]: order.customer?.name || "-",
+        [t("city")]: order.analytics_data?.city || "-",
+        [t("tableDate")]: formatDate(order.in_process_at),
+        [t("tableStatus")]: order.status === 'cancelled' ? t("statusCancel") : t("notCancel"),
+        [t("tableInvoice")]: invoice ? t("exists") : t("none"),
+        [t("invoiceNumber")]: invoice?.invoiceNumber || "-",
+        [t("invoiceDate")]: invoice?.invoiceDate ? formatDate(invoice.invoiceDate) : "-",
+        [t("amount")]: invoice ? `${invoice.amount} ${invoice.currencyType}` : "-",
+        [t("currencyType")]: invoice?.currencyType || "-",
+        [t("productCategory")]: invoice?.productCategory ? (categoryNames[invoice.productCategory] || invoice.productCategory) : "-",
+        [t("gtipCode")]: invoice?.gtipCode || "-",
+        [t("countryOfOrigin")]: countryName,
+        [t("invoicePdfFile")]: invoice?.pdfUrl || "-",
+        [t("etgbPdfFile")]: invoice?.etgbPdfUrl || "-",
+        [t("productInfo")]: order.products?.map(p => p.name).join(" | ") || "-",
+        [t("productQuantity")]: order.products?.map(p => p.quantity).join(" | ") || "-",
+      };
+    });
+    exportToCSV(data, "Sevkiyatlar_Seller");
   };
 
   return (
@@ -521,31 +630,18 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold text-gray-900">{t("shipmentsTitle")}</h2>
           </div>
           <div className="flex items-center space-x-4">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onBlur={(e) => setSearchTerm(e.target.value.trim())}
-              onPaste={(e) => {
-                e.preventDefault();
-                const pastedText = e.clipboardData.getData('text').trim();
-                setSearchTerm(pastedText);
-              }}
-              placeholder={t("search") + "..."}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
             <div className="flex items-center space-x-2">
-              <button className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+              <button
+                onClick={handleExportExcel}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm"
+              >
                 {t("excel")}
               </button>
-              <button className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                {t("pdf")}
-              </button>
-              <button className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+              <button
+                onClick={handleExportCSV}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
+              >
                 {t("csv")}
-              </button>
-              <button className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                {t("copy")}
               </button>
             </div>
           </div>
@@ -764,17 +860,17 @@ export default function DashboardPage() {
                     .replace("{to}", Math.min(endIndex, filteredOrders.length).toString())
                     .replace("{total}", filteredOrders.length.toString())}
                 </p>
-                
+
                 {/* Sayfalama Kontrolleri */}
                 {totalPages > 1 && (() => {
                   // Gösterilecek sayfa numaralarını hesapla
                   const pagesToShow: (number | string)[] = [];
                   const addedPages = new Set<number>();
-                  
+
                   // İlk sayfa her zaman gösterilir
                   pagesToShow.push(1);
                   addedPages.add(1);
-                  
+
                   // Mevcut sayfa ve bir sonraki sayfayı ekle
                   if (currentPage === 1) {
                     // Sayfa 1'deyken 2 ve 3'ü de göster
@@ -791,7 +887,7 @@ export default function DashboardPage() {
                     if (currentPage > 2) {
                       pagesToShow.push("...");
                     }
-                    
+
                     // Mevcut sayfa ve bir sonraki sayfayı ekle
                     if (!addedPages.has(currentPage)) {
                       pagesToShow.push(currentPage);
@@ -803,7 +899,7 @@ export default function DashboardPage() {
                       addedPages.add(currentPage + 1);
                     }
                   }
-                  
+
                   // Son sayfa her zaman gösterilir (eğer zaten eklenmemişse)
                   if (!addedPages.has(totalPages)) {
                     // Son sayfadan önce "..." ekle (eğer gerekliyse)
@@ -813,7 +909,7 @@ export default function DashboardPage() {
                     }
                     pagesToShow.push(totalPages);
                   }
-                  
+
                   return (
                     <div className="flex items-center space-x-2">
                       <button
@@ -823,7 +919,7 @@ export default function DashboardPage() {
                       >
                         {t("previous")}
                       </button>
-                      
+
                       {/* Sayfa Numaraları */}
                       <div className="flex items-center space-x-1">
                         {pagesToShow.map((page, index) => {
@@ -834,24 +930,23 @@ export default function DashboardPage() {
                               </span>
                             );
                           }
-                          
+
                           const pageNum = page as number;
                           return (
                             <button
                               key={pageNum}
                               onClick={() => goToPage(pageNum)}
-                              className={`px-3 py-1 text-sm border rounded-lg transition-colors ${
-                                currentPage === pageNum
-                                  ? "bg-blue-600 text-white border-blue-600"
-                                  : "border-gray-300 hover:bg-gray-50"
-                              }`}
+                              className={`px-3 py-1 text-sm border rounded-lg transition-colors ${currentPage === pageNum
+                                ? "bg-blue-600 text-white border-blue-600"
+                                : "border-gray-300 hover:bg-gray-50"
+                                }`}
                             >
                               {pageNum}
                             </button>
                           );
                         })}
                       </div>
-                      
+
                       <button
                         onClick={() => goToPage(currentPage + 1)}
                         disabled={currentPage === totalPages}
