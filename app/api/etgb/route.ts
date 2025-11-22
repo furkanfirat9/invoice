@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Dosyayı Vercel Blob'a yükle
-    const blob = await put(file.name, file, {
+    const blob = await put(`etgb/${file.name}`, file, {
       access: "public",
     });
 
