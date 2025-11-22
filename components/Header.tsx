@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function Header() {
   const { language, setLanguage, t } = useLanguage();
+  const { data: session } = useSession();
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+
+  // Kullanıcı adını role göre belirle
+  const displayName = session?.user?.role === "SELLER" ? "EFA Home" : "SPEGAT";
 
   const languages = [
     { code: "tr" as const, name: "Türkçe", flag: "🇹🇷" },
@@ -62,8 +67,8 @@ export default function Header() {
                     setShowLanguageMenu(false);
                   }}
                   className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center space-x-2 ${language === lang.code
-                      ? "text-blue-600 font-medium"
-                      : "text-gray-700"
+                    ? "text-blue-600 font-medium"
+                    : "text-gray-700"
                     }`}
                 >
                   <span>{lang.flag}</span>
@@ -92,7 +97,7 @@ export default function Header() {
             </svg>
           </div>
           <div className="text-sm">
-            <p className="font-medium text-gray-900">{t("hi")}, SPEGAT</p>
+            <p className="font-medium text-gray-900">{t("hi")}, {displayName}</p>
           </div>
         </div>
       </div>
