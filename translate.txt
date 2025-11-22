@@ -1,0 +1,37 @@
+✅ TR → RU Çeviri Listesi
+Genel Navigasyon
+Türkçe	Rusça
+Sevkiyatlar	Отгрузки
+Çıkış Yap	Выйти
+Excel İndir	Скачать Excel
+CSV İndir	Скачать CSV
+Filtreleri Temizle	Очистить фильтры
+Filtre Alanları
+Türkçe	Rusça
+Başlangıç Tarihi	Дата начала
+Bitiş Tarihi	Дата окончания
+Gönderi No Ara…	Поиск номера отправления…
+Alıcı Adı Ara…	Поиск имени получателя…
+Takip No Ara…	Поиск трек-номера…
+Tablo Başlıkları
+Türkçe	Rusça
+Sıra	№
+Takip No	Трек-номер
+Gönderi No	Номер отправления
+Alıcı Adı	Имя получателя
+Tarih	Дата
+Durum	Статус
+Fatura (MIC)	Счёт (МИК)
+ETGB	ЭТГБ
+Durum Etiketleri
+Türkçe	Rusça
+İptal Edildi	Отменено
+İptal Edilmedi	Не отменено
+Görüntüle	Просмотреть
+Yok	Нет
+Yükle	Загрузить
+Sayfalama
+Türkçe	Rusça
+Önceki	Предыдущая
+Sonraki	Следующая
+Sayfa	Страница

@@ -1,0 +1,48 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Şimdilik temel şema, ileride genişletilecek
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      UserRole @default(SELLER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum UserRole {
+  SELLER
+  CARRIER
+}
+
+model Invoice {
+  id              String   @id @default(cuid())
+  postingNumber   String   @unique
+  invoiceNumber   String
+  amount          Float
+  productCategory String
+  countryOfOrigin String
+  invoiceDate     DateTime
+  currencyType    String   @default("USD")
+  gtipCode        String
+  pdfUrl          String?  // Vercel Blob URL
+  
+  // ETGB Alanları
+  etgbPdfUrl      String?
+  etgbDate        DateTime?
+  etgbNumber      String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+

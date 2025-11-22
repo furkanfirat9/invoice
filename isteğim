@@ -1,0 +1,18 @@
+Merhaba, Ozon apiden aldığımız siparişler için fatura yüklemesi yapacağımız bir panel tasarlayacağız. Vercel blob ve prisma kullanacağız.
+
+Bu projeyi iki firma kullanacak. Biri satıcı firma diğeri kargo firması. Satıcı firma gelen siparişlere fatura yüklemesi ve gümrük için gerekli bilgileri dolduracak. Kargo firması ise satıcının girmiş olduğu bilgileri görüntüleyecek faturayı indirecek bilgileri kontrol edecek ve ETGB belgesi yüklemesi yapacak. (İleri tarihte eski siparişler için etgb yüklemesi yapılıyor. Bu nedenle geçmiş siparişleri de görüntüleyebilmeliler.)  
+
+Login Page;
+
+1- Giriş seçeneği Seller ve Carrier adında iki giriş seçeneği yapalım. Seçilen statüye göre giriş bilgileri doğrulaması olacak. Bu şekilde panele erişim yapılacak.
+
+2- Panelin genel tasarımı için örnek olarak attığım görseli referans alabilirsin. Genel olarak panel işlevi buna benzer olacak ancak daha yeni kütüphaneler kullanarak tasarlayabilirsin.
+
+3- Api için gerekli bilgileri .env dosyasına ekledim.
+
+4- Her adımı sırayla yapmayı tercih ediyorum. Bu nedenle projeyi parça parça geliştireceğiz.
+
+Kullanılabilecek teknolojiler:
+React (v18.2.0), TypeScript (v5), Tailwind CSS (v4), Next.js (v15.3.2) — framework olarak
+
+İleride backend için vercel blob ve prisma kullanacağız. Bu nedenle bu teknolojileri kullanabilirsin.
