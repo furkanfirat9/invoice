@@ -67,16 +67,20 @@ export default function LoginForm() {
       // Eğer kullanıcı SELLER seçip CARRIER hesabıyla girerse backend'de engellenmese bile
       // Yanlış sayfaya gidebilir, bu yüzden basit bir kontrol yapabiliriz veya
       // Direkt formData.role'a göre yönlendirebiliriz (Session verisi login sonrası hemen güncellenmeyebilir)
-      
+
       if (formData.role === UserRole.CARRIER) {
         router.push("/carrier");
       } else {
         router.push("/dashboard");
       }
-      
+
+      // Yönlendirme başladı, loading'i kapatabiliriz veya açık bırakabiliriz.
+      // Kullanıcı deneyimi için kapatmak bazen daha iyidir (hata sanılmasın diye).
+      setIsLoading(false);
+
       // Sayfanın yenilenmesini beklemeden yönlendirme
       router.refresh();
-      
+
     } catch (error) {
       console.error("Login error:", error);
       setErrors({
@@ -94,22 +98,20 @@ export default function LoginForm() {
           <button
             type="button"
             onClick={() => handleRoleChange(UserRole.SELLER)}
-            className={`flex-1 px-4 py-2.5 rounded-md text-sm font-medium transition-all ${
-              formData.role === UserRole.SELLER
-                ? "bg-blue-600 text-white shadow-md"
-                : "text-gray-300 hover:text-white hover:bg-white/5"
-            }`}
+            className={`flex-1 px-4 py-2.5 rounded-md text-sm font-medium transition-all ${formData.role === UserRole.SELLER
+              ? "bg-blue-600 text-white shadow-md"
+              : "text-gray-300 hover:text-white hover:bg-white/5"
+              }`}
           >
             Satıcı (Seller)
           </button>
           <button
             type="button"
             onClick={() => handleRoleChange(UserRole.CARRIER)}
-            className={`flex-1 px-4 py-2.5 rounded-md text-sm font-medium transition-all ${
-              formData.role === UserRole.CARRIER
-                ? "bg-blue-600 text-white shadow-md"
-                : "text-gray-300 hover:text-white hover:bg-white/5"
-            }`}
+            className={`flex-1 px-4 py-2.5 rounded-md text-sm font-medium transition-all ${formData.role === UserRole.CARRIER
+              ? "bg-blue-600 text-white shadow-md"
+              : "text-gray-300 hover:text-white hover:bg-white/5"
+              }`}
           >
             Kargo (Carrier)
           </button>
@@ -133,11 +135,10 @@ export default function LoginForm() {
             autoComplete="username"
             value={formData.email}
             onChange={handleInputChange}
-            className={`w-full px-4 py-3 bg-white/10 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-              errors.email
-                ? "border-red-500 focus:ring-red-500"
-                : "border-white/20 focus:bg-white/15"
-            }`}
+            className={`w-full px-4 py-3 bg-white/10 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${errors.email
+              ? "border-red-500 focus:ring-red-500"
+              : "border-white/20 focus:bg-white/15"
+              }`}
             placeholder=""
           />
           {errors.email && (
@@ -161,11 +162,10 @@ export default function LoginForm() {
               autoComplete="current-password"
               value={formData.password}
               onChange={handleInputChange}
-              className={`w-full px-4 py-3 bg-white/10 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all pr-12 ${
-                errors.password
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-white/20 focus:bg-white/15"
-              }`}
+              className={`w-full px-4 py-3 bg-white/10 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all pr-12 ${errors.password
+                ? "border-red-500 focus:ring-red-500"
+                : "border-white/20 focus:bg-white/15"
+                }`}
               placeholder=""
             />
             <button
