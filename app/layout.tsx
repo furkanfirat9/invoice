@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { LanguageProvider } from "@/contexts/LanguageContext";
+import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "Invoice Panel - Ozon Fatura Yönetimi",
@@ -20,7 +20,7 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body>
-        <LanguageProvider>{children}</LanguageProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

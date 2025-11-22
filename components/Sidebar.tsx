@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface MenuItem {
@@ -163,6 +164,7 @@ const menuItems: MenuItem[] = [
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const { data: session } = useSession();
   const { t } = useLanguage();
 
   const handleLogout = () => {
@@ -177,7 +179,9 @@ export default function Sidebar() {
           <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
             <span className="text-lg font-bold">EFA</span>
           </div>
-          <span className="text-xl font-bold">Invoice Panel</span>
+          <span className="text-xl font-bold">
+            {session?.user?.role === "SELLER" ? "Fatura Paneli" : "Invoice Panel"}
+          </span>
         </div>
       </div>
 
@@ -200,8 +204,12 @@ export default function Sidebar() {
             </svg>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">Admin User</p>
-            <p className="text-xs text-gray-400 truncate">USERADMIN</p>
+            <p className="text-sm font-semibold truncate">
+              {session?.user?.role === "SELLER" ? "Burak Aydemir" : "Admin User"}
+            </p>
+            <p className="text-xs text-gray-400 truncate">
+              {session?.user?.role === "SELLER" ? "Muhasebe" : "USERADMIN"}
+            </p>
           </div>
         </div>
       </div>
@@ -215,11 +223,10 @@ export default function Sidebar() {
               <li key={item.path}>
                 <button
                   onClick={() => router.push(item.path)}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                    isActive
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-300 hover:bg-slate-800 hover:text-white"
-                  }`}
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-300 hover:bg-slate-800 hover:text-white"
+                    }`}
                 >
                   {item.icon}
                   <span className="font-medium">{t(item.key)}</span>
