@@ -976,13 +976,13 @@ export default function DashboardPage() {
             const res = await fetch(`/api/invoice?postingNumber=${encodeURIComponent(postingNumber)}`);
             const data = await res.json();
             if (data.invoice && data.invoice.pdfUrl) {
-              setInvoiceRecords((prev) => new Set(prev).add(postingNumber));
+              setInvoiceRecords((prev) => new Map(prev).set(postingNumber, data.invoice));
             } else {
-              // pdfUrl yoksa Set'ten çıkar
+              // pdfUrl yoksa Map'ten çıkar
               setInvoiceRecords((prev) => {
-                const newSet = new Set(prev);
-                newSet.delete(postingNumber);
-                return newSet;
+                const newMap = new Map(prev);
+                newMap.delete(postingNumber);
+                return newMap;
               });
             }
           } catch (error) {
