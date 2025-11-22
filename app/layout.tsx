@@ -5,6 +5,11 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 export const metadata: Metadata = {
   title: "Invoice Panel - Ozon Fatura Yönetimi",
   description: "Ozon siparişleri için fatura yükleme ve yönetim paneli",
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
 };
 
 export default function RootLayout({
