@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useOzonOrders } from "@/hooks/useOzonOrders";
 import { OzonPosting } from "@/types/ozon";
@@ -10,6 +11,7 @@ import countries from "world-countries";
 
 export default function DashboardPage() {
   const { t } = useLanguage();
+  const { data: session } = useSession();
   const { orders, loading, error, fetchOrders } = useOzonOrders();
 
   const [startDate, setStartDate] = useState<Date>(() => {
@@ -766,7 +768,7 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                          EFA Home Россия
+                          {session?.user?.storeName || "EFA Home Россия"}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
