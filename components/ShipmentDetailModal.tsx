@@ -845,7 +845,8 @@ export default function ShipmentDetailModal({
               </button>
 
               {!readOnly && (
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => {
                     // Hata mesajını temizle
                     setErrorMessage("");
@@ -962,7 +963,7 @@ export default function ShipmentDetailModal({
                     />
                   </svg>
                   {t("save")}
-                </button>
+                </motion.button>
               )}
             </div>
           </motion.div>

@@ -44,10 +44,39 @@ export default function CarrierPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedPostingForUpload, setSelectedPostingForUpload] = useState<string | null>(null);
 
-  // Verileri Çek
+  // Mağaza Seçimi State'leri
+  const [sellers, setSellers] = useState<Array<{ id: string; storeName: string | null; email: string }>>([]);
+  const [selectedSellerId, setSelectedSellerId] = useState<string>("");
+
+  // Mağazaları Çek
   useEffect(() => {
-    fetchOrders("all", startDate, endDate);
-  }, [fetchOrders, startDate, endDate]);
+    const fetchSellers = async () => {
+      try {
+        const res = await fetch("/api/sellers");
+        if (res.ok) {
+          const data = await res.json();
+          setSellers(data);
+          // Varsayılan olarak ilk mağazayı seç
+          if (data.length > 0) {
+            setSelectedSellerId(data[0].id);
+          }
+        }
+      } catch (error) {
+        console.error("Sellers fetch error:", error);
+      }
+    };
+    fetchSellers();
+  }, []);
+
+  // Verileri Çek (Mağaza seçildiğinde tetiklenir)
+  useEffect(() => {
+    if (selectedSellerId) {
+      fetchOrders("all", startDate, endDate, selectedSellerId);
+    } else if (sellers.length > 0) {
+      // Eğer selectedSellerId boşsa ama sellers yüklendiyse, ilkini seç ve yükle
+      setSelectedSellerId(sellers[0].id);
+    }
+  }, [fetchOrders, startDate, endDate, selectedSellerId, sellers]);
 
   // Fatura ve ETGB Kayıtlarını Kontrol Et
   useEffect(() => {
@@ -396,16 +425,38 @@ export default function CarrierPage() {
         className="hidden"
       />
 
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t("carrierTitle")}</h1>
           <p className="text-gray-600 mt-1">
             {t("carrierSubtitle")}
           </p>
         </div>
-        <div className="flex space-x-2">
-          <button onClick={handleExportExcel} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">{t("downloadExcel")}</button>
-          <button onClick={handleExportCSV} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">{t("downloadCsv")}</button>
+
+        {/* Mağaza Seçimi Dropdown */}
+        <div className="flex items-center space-x-4">
+          <div className="relative">
+            <select
+              value={selectedSellerId}
+              onChange={(e) => setSelectedSellerId(e.target.value)}
+              className="appearance-none bg-white border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded leading-tight focus:outline-none focus:bg-white focus:border-blue-500 shadow-sm min-w-[200px]"
+            >
+              {sellers.length === 0 && <option value="">{t("loading") || "Yükleniyor..."}</option>}
+              {sellers.map((seller) => (
+                <option key={seller.id} value={seller.id}>
+                  {seller.storeName || seller.email}
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+            </div>
+          </div>
+
+          <div className="flex space-x-2">
+            <button onClick={handleExportExcel} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm shadow-sm transition-colors">{t("downloadExcel")}</button>
+            <button onClick={handleExportCSV} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm shadow-sm transition-colors">{t("downloadCsv")}</button>
+          </div>
         </div>
       </div>
 

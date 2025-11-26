@@ -103,18 +103,56 @@ async function fetchChunk(
   return allPostings;
 }
 
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
 export async function GET(request: NextRequest) {
   try {
-    // API anahtarlarını kontrol et
-    if (!OZON_CLIENT_ID || !OZON_API_KEY) {
+    // Oturum kontrolü
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: "Ozon API anahtarları yapılandırılmamış" },
-        { status: 500 }
+        { error: "Oturum açmanız gerekiyor" },
+        { status: 401 }
       );
     }
 
-    // Query parametrelerini al
+    // Kullanıcı bilgilerini ve Ozon API anahtarlarını veritabanından al
+    let targetUserId = session.user.id;
+
+    // Eğer kullanıcı CARRIER ise ve sellerId parametresi varsa, o satıcının bilgilerini kullan
     const searchParams = request.nextUrl.searchParams;
+    const sellerId = searchParams.get("sellerId");
+
+    if (session.user.role === "CARRIER") {
+      if (sellerId) {
+        targetUserId = sellerId;
+      } else {
+        // Carrier için varsayılan davranış: sellerId yoksa boş dön veya hata ver
+        // Şimdilik boş dizi dönelim, arayüzde "Lütfen mağaza seçiniz" denir.
+        return NextResponse.json([]);
+      }
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { ozonClientId: true, ozonApiKey: true }
+    });
+
+    const clientId = user?.ozonClientId;
+    const apiKey = user?.ozonApiKey;
+
+    // API anahtarlarını kontrol et
+    if (!clientId || !apiKey) {
+      return NextResponse.json(
+        { error: "Seçilen mağazanın Ozon API anahtarları bulunamadı." },
+        { status: 400 }
+      );
+    }
+
+    // Query parametrelerini al (yukarıda zaten alınmıştı ama tekrar kullanıyoruz)
+    // const searchParams = request.nextUrl.searchParams; // Zaten tanımlı
     const statusParam = searchParams.get("status");
     const status = (statusParam === "all" || !statusParam) ? undefined : statusParam;
     const since = searchParams.get("since");
@@ -124,38 +162,38 @@ export async function GET(request: NextRequest) {
     const globalStartDate = since
       ? new Date(since)
       : (() => {
-          const d = new Date();
-          d.setDate(d.getDate() - 30);
-          d.setHours(0, 0, 0, 0);
-          return d;
-        })();
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      })();
 
     const globalEndDate = to
       ? new Date(to)
       : (() => {
-          const d = new Date();
-          d.setHours(23, 59, 59, 999);
-          return d;
-        })();
+        const d = new Date();
+        d.setHours(23, 59, 59, 999);
+        return d;
+      })();
 
     // Tarihleri parçalara böl (90 günlük dilimler)
     // Ozon API genellikle 3 aydan uzun periyotlarda hata verir (PERIOD_IS_TOO_LONG)
     const CHUNK_SIZE_MS = 90 * 24 * 60 * 60 * 1000; // 90 gün
     const chunks: { start: Date; end: Date }[] = [];
-    
+
     let currentStart = new Date(globalStartDate);
-    
+
     while (currentStart < globalEndDate) {
       let currentEnd = new Date(currentStart.getTime() + CHUNK_SIZE_MS);
       if (currentEnd > globalEndDate) {
         currentEnd = new Date(globalEndDate);
       }
-      
+
       chunks.push({
         start: new Date(currentStart),
         end: new Date(currentEnd)
       });
-      
+
       // Bir sonraki başlangıç, şimdiki bitişten 1 milisaniye sonrası
       currentStart = new Date(currentEnd.getTime() + 1);
     }
@@ -163,8 +201,8 @@ export async function GET(request: NextRequest) {
     console.log(`Toplam ${chunks.length} parça sorgulanacak.`);
 
     // Tüm parçaları paralel olarak çek
-    const promises = chunks.map(chunk => 
-      fetchChunk(chunk.start, chunk.end, status, OZON_CLIENT_ID, OZON_API_KEY)
+    const promises = chunks.map(chunk =>
+      fetchChunk(chunk.start, chunk.end, status, clientId as string, apiKey as string)
         .catch(err => {
           console.error(`Chunk hatası (${chunk.start.toISOString()} - ${chunk.end.toISOString()}):`, err);
           return [] as OzonPosting[]; // Hata durumunda boş dön, diğerleri etkilenmesin
@@ -172,7 +210,7 @@ export async function GET(request: NextRequest) {
     );
 
     const results = await Promise.all(promises);
-    
+
     // Sonuçları tek bir dizide birleştir
     const allPostings = results.flat();
 
@@ -184,7 +222,7 @@ export async function GET(request: NextRequest) {
         uniquePostingsMap.set(p.posting_number, p);
       }
     });
-    
+
     const uniquePostings = Array.from(uniquePostingsMap.values());
 
     // Tarihe göre yeniden sırala (in_process_at veya shipment_date)

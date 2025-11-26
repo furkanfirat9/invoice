@@ -9,8 +9,9 @@ export default function Header() {
   const { data: session } = useSession() || {};
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
 
-  // Kullanıcı adını role göre belirle
-  const displayName = session?.user?.role === "SELLER" ? "EFA Home" : "SPEGAT";
+  // Kullanıcı adını storeName veya role'e göre belirle
+  const displayName = session?.user?.storeName ||
+    (session?.user?.role === "SELLER" ? "Satıcı" : "SPEGAT");
 
   const languages = [
     { code: "tr" as const, name: "Türkçe", flag: "🇹🇷" },

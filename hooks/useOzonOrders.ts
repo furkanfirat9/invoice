@@ -9,7 +9,7 @@ export function useOzonOrders() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchOrders = useCallback(
-    async (status: string, startDate: Date, endDate: Date) => {
+    async (status: string, startDate: Date, endDate: Date, sellerId?: string) => {
       setLoading(true);
       setError(null);
 
@@ -17,9 +17,12 @@ export function useOzonOrders() {
         const since = startDate.toISOString();
         const to = endDate.toISOString();
 
-        const response = await fetch(
-          `/api/ozon/fbs-postings?status=${status}&since=${since}&to=${to}`
-        );
+        let url = `/api/ozon/fbs-postings?status=${status}&since=${since}&to=${to}`;
+        if (sellerId) {
+          url += `&sellerId=${sellerId}`;
+        }
+
+        const response = await fetch(url);
 
         if (!response.ok) {
           const errorData = await response.json();
