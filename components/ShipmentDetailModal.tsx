@@ -44,6 +44,7 @@ export default function ShipmentDetailModal({
     "blender": "850940000013", // BLENDER
     "toaster": "851690000019", // EKMEK KIZARTMA
     "electric-vacuum": "850811000011", // ELEKTRİKLİ SÜPÜRGE
+    "pill": "210690920000", // HAP
   };
 
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -403,6 +404,7 @@ export default function ShipmentDetailModal({
                       <option value="blender">Blender</option>
                       <option value="toaster">Ekmek Kızartma</option>
                       <option value="electric-vacuum">Elektrikli Süpürge</option>
+                      <option value="pill">Hap</option>
                     </select>
                     <p className="mt-1 text-xs text-gray-500">
                       {t("categoryHelper")}

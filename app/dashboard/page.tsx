@@ -303,6 +303,7 @@ export default function DashboardPage() {
       "blender": "Blender",
       "toaster": "Ekmek Kızartma",
       "electric-vacuum": "Elektrikli Süpürge",
+      "pill": "Hap",
     };
 
     const data = filteredOrders.map((order, index) => {
@@ -356,6 +357,7 @@ export default function DashboardPage() {
       "blender": "Blender",
       "toaster": "Ekmek Kızartma",
       "electric-vacuum": "Elektrikli Süpürge",
+      "pill": "Hap",
     };
 
     const data = filteredOrders.map((order, index) => {
