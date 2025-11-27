@@ -66,6 +66,18 @@ export default function CarrierPage() {
     fetchSellers();
   }, []);
 
+  // Mağaza değiştiğinde state'leri sıfırla
+  useEffect(() => {
+    setCurrentPage(1);
+    setFilters({
+      postingNumber: "",
+      receiverName: "",
+      trackingNumber: "",
+    });
+    setInvoiceRecords(new Map());
+    setEtgbRecords(new Map());
+  }, [selectedSellerId]);
+
   const { orders, loading, error, mutate } = useOzonOrders({
     status: "all",
     startDate,
@@ -87,33 +99,43 @@ export default function CarrierPage() {
         (order) => order.posting_number || order.order_number
       ).filter(Boolean) as string[];
 
+      if (postingNumbers.length === 0) return;
+
       const newInvoiceMap = new Map<string, any>();
       const newEtgbMap = new Map<string, string>();
+      const chunkSize = 100; // 100'erli gruplar halinde sor
 
-      await Promise.all(
-        postingNumbers.map(async (postingNumber) => {
-          try {
-            // Fatura Kontrolü
-            const invRes = await fetch(`/api/invoice?postingNumber=${encodeURIComponent(postingNumber)}`);
-            const invData = await invRes.json();
-            if (invData.invoice && invData.invoice.pdfUrl) {
-              newInvoiceMap.set(postingNumber, invData.invoice);
+      // Chunk'lar halinde sorgula
+      for (let i = 0; i < postingNumbers.length; i += chunkSize) {
+        const chunk = postingNumbers.slice(i, i + chunkSize);
+        try {
+          const res = await fetch("/api/invoice/check", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ postingNumbers: chunk }),
+          });
 
-              if (invData.invoice.etgbPdfUrl) {
-                newEtgbMap.set(postingNumber, invData.invoice.etgbPdfUrl);
-              }
-            } else {
-              const etgbRes = await fetch(`/api/etgb?postingNumber=${encodeURIComponent(postingNumber)}`);
-              const etgbData = await etgbRes.json();
-              if (etgbData.etgb && etgbData.etgb.etgbPdfUrl) {
-                newEtgbMap.set(postingNumber, etgbData.etgb.etgbPdfUrl);
-              }
+          if (res.ok) {
+            const data = await res.json();
+            if (data.invoices && Array.isArray(data.invoices)) {
+              data.invoices.forEach((inv: any) => {
+                // Fatura varsa ekle
+                if (inv.pdfUrl) {
+                  newInvoiceMap.set(inv.postingNumber, inv);
+                }
+                // ETGB varsa ekle
+                if (inv.etgbPdfUrl) {
+                  newEtgbMap.set(inv.postingNumber, inv.etgbPdfUrl);
+                }
+              });
             }
-          } catch (error) {
-            console.error(`Kayıt kontrolü hatası (${postingNumber}):`, error);
+          } else {
+            console.error("Invoice/ETGB bulk check failed for chunk", i);
           }
-        })
-      );
+        } catch (error) {
+          console.error("Toplu kayıt kontrolü hatası (chunk):", error);
+        }
+      }
 
       setInvoiceRecords(newInvoiceMap);
       setEtgbRecords(newEtgbMap);
@@ -651,24 +673,111 @@ export default function CarrierPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-1 border rounded hover:bg-white disabled:opacity-50 text-sm"
-            >
-              {t("previous")}
-            </button>
-            <span className="text-sm text-gray-600">
-              {t("page")} {currentPage} / {totalPages}
-            </span>
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 border rounded hover:bg-white disabled:opacity-50 text-sm"
-            >
-              {t("next")}
-            </button>
+          <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between bg-gray-50 gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">
+                {t("page")} <span className="font-medium">{currentPage}</span> / {totalPages}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => goToPage(1)}
+                disabled={currentPage === 1}
+                className="p-2 border rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-600"
+                title={t("firstPage") || "İlk Sayfa"}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
+              </button>
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="p-2 border rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-600"
+                title={t("previous")}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+
+              {/* Sayfa Numaraları */}
+              <div className="hidden sm:flex items-center gap-1">
+                {(() => {
+                  const pages = [];
+                  const maxVisible = 5;
+                  let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                  let end = Math.min(totalPages, start + maxVisible - 1);
+
+                  if (end - start + 1 < maxVisible) {
+                    start = Math.max(1, end - maxVisible + 1);
+                  }
+
+                  if (start > 1) {
+                    pages.push(
+                      <button key={1} onClick={() => goToPage(1)} className="px-3 py-1 border rounded hover:bg-white text-sm text-gray-600">1</button>
+                    );
+                    if (start > 2) pages.push(<span key="start-ellipsis" className="px-1">...</span>);
+                  }
+
+                  for (let i = start; i <= end; i++) {
+                    pages.push(
+                      <button
+                        key={i}
+                        onClick={() => goToPage(i)}
+                        className={`px-3 py-1 border rounded text-sm ${currentPage === i ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-white text-gray-600'}`}
+                      >
+                        {i}
+                      </button>
+                    );
+                  }
+
+                  if (end < totalPages) {
+                    if (end < totalPages - 1) pages.push(<span key="end-ellipsis" className="px-1">...</span>);
+                    pages.push(
+                      <button key={totalPages} onClick={() => goToPage(totalPages)} className="px-3 py-1 border rounded hover:bg-white text-sm text-gray-600">{totalPages}</button>
+                    );
+                  }
+
+                  return pages;
+                })()}
+              </div>
+
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="p-2 border rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-600"
+                title={t("next")}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
+              <button
+                onClick={() => goToPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="p-2 border rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-600"
+                title={t("lastPage") || "Son Sayfa"}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+              </button>
+            </div>
+
+            {/* Sayfaya Git Input */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 hidden sm:inline">{t("goToPage") || "Sayfaya Git"}:</span>
+              <input
+                type="number"
+                min={1}
+                max={totalPages}
+                className="w-16 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const val = parseInt((e.target as HTMLInputElement).value);
+                    if (val >= 1 && val <= totalPages) {
+                      goToPage(val);
+                      (e.target as HTMLInputElement).value = "";
+                    }
+                  }
+                }}
+                placeholder="#"
+              />
+            </div>
           </div>
         )}
       </div>
