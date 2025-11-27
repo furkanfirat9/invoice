@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    
+
     const postingNumber = formData.get("postingNumber") as string;
     const invoiceNumber = formData.get("invoiceNumber") as string;
     const amount = parseFloat(formData.get("amount") as string);
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       if (!process.env.BLOB_READ_WRITE_TOKEN) {
         throw new Error("BLOB_READ_WRITE_TOKEN environment variable bulunamadı");
       }
-      
+
       const blob = await put(`invoices/${postingNumber}-${Date.now()}.pdf`, file, {
         access: "public",
         contentType: "application/pdf",
@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
       console.error("Database connection error:", dbError);
       if (dbError.code === 'P1001') {
         return NextResponse.json(
-          { 
-            error: "Veritabanı bağlantı hatası", 
+          {
+            error: "Veritabanı bağlantı hatası",
             details: "Veritabanı sunucusuna erişilemiyor. Lütfen DATABASE_URL environment variable'ını kontrol edin.",
             code: "DATABASE_CONNECTION_ERROR"
           },
@@ -139,54 +139,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ invoice: null });
     }
 
-    // Blob'dan dosyanın varlığını kontrol et
-    if (invoice.pdfUrl) {
-      try {
-        // Blob URL'ine HEAD request yaparak dosyanın varlığını kontrol et
-        const response = await fetch(invoice.pdfUrl, { method: 'HEAD' });
-        
-        if (!response.ok) {
-          // Dosya yoksa (404 veya başka hata) pdfUrl'i null yap ve veritabanını güncelle
-          console.warn(`PDF file not found in blob: ${invoice.pdfUrl}`, response.status);
-          try {
-            await prisma.invoice.update({
-              where: { postingNumber },
-              data: { pdfUrl: null },
-            });
-          } catch (dbError: any) {
-            // Veritabanı güncelleme hatası - sadece logla, pdfUrl'i null döndür
-            console.warn("Database update error (non-critical):", dbError);
-          }
-          // pdfUrl'i null olarak döndür
-          return NextResponse.json({
-            invoice: {
-              ...invoice,
-              pdfUrl: null,
-            },
-          });
-        }
-        // Dosya varsa normal döndür
-      } catch (error: any) {
-        // Network hatası veya başka bir sorun - pdfUrl'i null yap
-        console.warn(`Error checking PDF file in blob: ${invoice.pdfUrl}`, error);
-        try {
-          await prisma.invoice.update({
-            where: { postingNumber },
-            data: { pdfUrl: null },
-          });
-        } catch (dbError: any) {
-          // Veritabanı güncelleme hatası - sadece logla, pdfUrl'i null döndür
-          console.warn("Database update error (non-critical):", dbError);
-        }
-        // pdfUrl'i null olarak döndür
-        return NextResponse.json({
-          invoice: {
-            ...invoice,
-            pdfUrl: null,
-          },
-        });
-      }
-    }
+    // Blob dosya kontrolünü kaldırdık (Performans ve 500 hatası önleme için)
+    // Veritabanında kayıt varsa dosya var kabul ediyoruz.
+    // Eğer dosya silinmişse kullanıcı indirmeye çalıştığında hata alacaktır, bu daha güvenli.
 
     return NextResponse.json({ invoice });
   } catch (error: any) {

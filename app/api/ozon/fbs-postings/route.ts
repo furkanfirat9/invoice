@@ -36,6 +36,9 @@ interface OzonPosting {
 }
 
 // Tek bir istek aralığı için (maks 3 ay) verileri çeken fonksiyon
+import { fetchAPI } from "@/lib/api";
+
+// Tek bir istek aralığı için (maks 3 ay) verileri çeken fonksiyon
 async function fetchChunk(
   start: Date,
   end: Date,
@@ -52,51 +55,52 @@ async function fetchChunk(
   console.log(`Veri çekiliyor: ${start.toISOString()} - ${end.toISOString()} (Status: ${status || 'ALL'})`);
 
   while (hasNext) {
-    const response = await fetch(`${OZON_API_BASE}/v3/posting/fbs/list`, {
-      method: "POST",
-      headers: {
-        "Client-Id": clientId,
-        "Api-Key": apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        dir: "ASC",
-        filter: {
-          since: start.toISOString(),
-          to: end.toISOString(),
-          ...(status ? { status } : {}),
+    try {
+      const data = await fetchAPI(`${OZON_API_BASE}/v3/posting/fbs/list`, {
+        method: "POST",
+        headers: {
+          "Client-Id": clientId,
+          "Api-Key": apiKey,
         },
-        limit: limit,
-        offset: offset,
-        with: {
-          analytics_data: true,
-          barcodes: true,
-          financial_data: false,
-          translit: false,
-        },
-      }),
-    });
+        body: JSON.stringify({
+          dir: "ASC",
+          filter: {
+            since: start.toISOString(),
+            to: end.toISOString(),
+            ...(status ? { status } : {}),
+          },
+          limit: limit,
+          offset: offset,
+          with: {
+            analytics_data: true,
+            barcodes: true,
+            financial_data: false,
+            translit: false,
+          },
+        }),
+        retries: 3, // Ozon API can be flaky
+        retryDelay: 2000,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Ozon API Chunk Error:", errorText);
-      throw new Error(`API Hatası: ${errorText}`);
-    }
+      const result = data?.result || {};
+      const postings = Array.isArray(result.postings) ? result.postings : [];
 
-    const data = await response.json();
-    const result = data?.result || {};
-    const postings = Array.isArray(result.postings) ? result.postings : [];
+      allPostings.push(...postings);
 
-    allPostings.push(...postings);
+      hasNext = result.has_next === true;
+      offset += postings.length || limit;
+      pageCount++;
 
-    hasNext = result.has_next === true;
-    offset += postings.length || limit;
-    pageCount++;
-
-    // Sonsuz döngü koruması (tek bir chunk için 20 sayfa = 20.000 kayıt yeterli olmalı)
-    if (pageCount > 20) {
-      console.warn("Sayfa limiti aşıldı (chunk)");
-      break;
+      // Sonsuz döngü koruması (tek bir chunk için 20 sayfa = 20.000 kayıt yeterli olmalı)
+      if (pageCount > 20) {
+        console.warn("Sayfa limiti aşıldı (chunk)");
+        break;
+      }
+    } catch (error: any) {
+      console.error("Ozon API Chunk Error:", error.message);
+      // If one page fails after retries, we might want to stop or continue.
+      // Throwing here will be caught by the Promise.all catch block in the main handler.
+      throw error;
     }
   }
 

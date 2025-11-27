@@ -15,29 +15,35 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         try {
           if (!credentials?.email || !credentials?.password) {
+            console.log("Auth Error: Missing credentials");
             throw new Error("E-posta ve şifre gereklidir");
           }
 
+          const email = credentials.email.trim(); // Boşlukları temizle
+
           const user = await prisma.user.findUnique({
             where: {
-              email: credentials.email,
+              email: email,
             },
           });
 
           if (!user) {
-            console.log("Kullanıcı bulunamadı:", credentials.email);
+            console.log(`Auth Error: User not found for email: ${email}`);
             throw new Error("Kullanıcı bulunamadı");
           }
 
+          // Şifre kontrolü
           const isPasswordValid = await bcrypt.compare(
             credentials.password,
             user.password
           );
 
           if (!isPasswordValid) {
-            console.log("Hatalı şifre:", credentials.email);
+            console.log(`Auth Error: Invalid password for user: ${email}`);
             throw new Error("Hatalı şifre");
           }
+
+          console.log(`Auth Success: User logged in: ${email} (${user.role})`);
 
           return {
             id: user.id,
@@ -46,8 +52,12 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
             storeName: user.storeName,
           };
-        } catch (error) {
-          console.error("Authorize error:", error);
+        } catch (error: any) {
+          console.error("Authorize critical error:", error.message);
+          // Veritabanı bağlantı hatası kontrolü
+          if (error.code === 'P1001') {
+            throw new Error("Veritabanı bağlantı hatası. Lütfen daha sonra tekrar deneyin.");
+          }
           throw error; // Hatayı tekrar fırlat ki NextAuth yakalasın
         }
       },

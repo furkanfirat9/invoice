@@ -12,7 +12,7 @@ import countries from "world-countries";
 export default function DashboardPage() {
   const { t } = useLanguage();
   const { data: session } = useSession();
-  const { orders, loading, error, fetchOrders } = useOzonOrders();
+  // const { orders, loading, error, fetchOrders } = useOzonOrders(); // Removed old hook call
 
   const [startDate, setStartDate] = useState<Date>(() => {
     const d = new Date();
@@ -43,6 +43,43 @@ export default function DashboardPage() {
     d.setHours(23, 59, 59, 999);
     return d;
   });
+
+  // Determine active date range for fetching
+  // If search is active (CWB, Reference, SearchTerm), we might want to widen the range or keep it as is.
+  // For simplicity and performance, we stick to the selected filters or default range.
+  // If user wants to search old records, they should adjust the date filter.
+  // However, to match previous logic: "If search query exists, look back 1 year"
+  const getActiveDateRange = () => {
+    const hasSearchQuery = filterCwbCode || filterReferenceCode || searchTerm;
+    if (hasSearchQuery) {
+      const start = new Date();
+      start.setFullYear(start.getFullYear() - 1);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date();
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+    return {
+      start: filterStartDate || startDate,
+      end: filterEndDate || endDate
+    };
+  };
+
+  const activeRange = getActiveDateRange();
+
+  // Use the new SWR hook
+  const { orders, loading, error, mutate } = useOzonOrders({
+    status: filterStatus,
+    startDate: activeRange.start,
+    endDate: activeRange.end,
+  });
+
+  // Manual refresh function (for "Try Again" button)
+  const handleSearch = useCallback(() => {
+    mutate();
+  }, [mutate]);
+
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 10;
   const [selectedOrder, setSelectedOrder] = useState<OzonPosting | null>(null);
@@ -64,87 +101,44 @@ export default function DashboardPage() {
         (order) => order.posting_number || order.order_number
       ).filter(Boolean) as string[];
 
-      const invoiceMap = new Map<string, any>();
+      if (postingNumbers.length === 0) return;
 
-      // Her posting number için invoice kontrolü yap
-      await Promise.all(
-        postingNumbers.map(async (postingNumber) => {
-          try {
-            const res = await fetch(`/api/invoice?postingNumber=${encodeURIComponent(postingNumber)}`);
+      const invoiceMap = new Map<string, any>();
+      const chunkSize = 100; // 100'erli gruplar halinde sor
+
+      // Chunk'lar halinde sorgula
+      for (let i = 0; i < postingNumbers.length; i += chunkSize) {
+        const chunk = postingNumbers.slice(i, i + chunkSize);
+        try {
+          const res = await fetch("/api/invoice/check", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ postingNumbers: chunk }),
+          });
+
+          if (res.ok) {
             const data = await res.json();
-            // Sadece invoice var VE pdfUrl var ise VAR olarak işaretle
-            if (data.invoice && data.invoice.pdfUrl) {
-              invoiceMap.set(postingNumber, data.invoice);
+            if (data.invoices && Array.isArray(data.invoices)) {
+              data.invoices.forEach((inv: any) => {
+                // Sadece invoice var VE pdfUrl var ise VAR olarak işaretle
+                if (inv.pdfUrl) {
+                  invoiceMap.set(inv.postingNumber, inv);
+                }
+              });
             }
-          } catch (error) {
-            console.error(`Invoice kontrolü hatası (${postingNumber}):`, error);
+          } else {
+            console.error("Invoice bulk check failed for chunk", i);
           }
-        })
-      );
+        } catch (error) {
+          console.error("Invoice toplu kontrol hatası (chunk):", error);
+        }
+      }
 
       setInvoiceRecords(invoiceMap);
     };
 
     if (orders.length > 0) {
       checkInvoices();
-    }
-  }, [orders]);
-
-  const handleSearch = useCallback(() => {
-    // Eğer spesifik bir arama yapılıyorsa (Takip No, Gönderi No veya Genel Arama)
-    // Tarih kısıtlamasını kaldırıp geniş bir aralıkta ara (Son 1 yıl)
-    const hasSearchQuery = filterCwbCode || filterReferenceCode || searchTerm;
-
-    let searchStartDate: Date;
-    let searchEndDate: Date;
-
-    if (hasSearchQuery) {
-      // Arama varsa son 1 yıla bak
-      const d = new Date();
-      d.setFullYear(d.getFullYear() - 1);
-      d.setHours(0, 0, 0, 0);
-      searchStartDate = d;
-
-      const end = new Date();
-      end.setHours(23, 59, 59, 999);
-      searchEndDate = end;
-    } else {
-      // Arama yoksa seçili tarihleri kullan
-      searchStartDate = filterStartDate || startDate;
-      searchEndDate = filterEndDate || endDate;
-    }
-
-    fetchOrders(filterStatus, searchStartDate, searchEndDate);
-  }, [fetchOrders, filterStatus, startDate, endDate, filterStartDate, filterEndDate, filterCwbCode, filterReferenceCode, searchTerm]);
-
-  useEffect(() => {
-    handleSearch();
-  }, []);
-
-  // Tarih filtreleri değiştiğinde otomatik olarak API'yi çağır
-  useEffect(() => {
-    // Sadece tarih değiştiğinde ve arama kutuları boşsa tetikle
-    // Arama kutuları doluysa handleSearch zaten çalışacak veya kullanıcı butona basacak
-    if (!filterCwbCode && !filterReferenceCode && !searchTerm) {
-      const searchStartDate = filterStartDate || startDate;
-      const searchEndDate = filterEndDate || endDate;
-      fetchOrders(filterStatus, searchStartDate, searchEndDate);
-    }
-  }, [filterStartDate, filterEndDate]);
-
-  // API yanıtını console'da göster (debug için)
-  useEffect(() => {
-    if (orders.length > 0) {
-      console.log("=== FRONTEND - İLK POSTING ===");
-      const firstOrder = orders[0];
-      console.log("Posting Number:", firstOrder.posting_number);
-      console.log("Tüm tarih alanları:", {
-        shipment_date: firstOrder.shipment_date,
-        order_date: firstOrder.order_date,
-        in_process_at: firstOrder.in_process_at,
-      });
-      console.log("Tüm order objesi:", firstOrder);
-      console.log("===============================");
     }
   }, [orders]);
   // useEffect(() => {
