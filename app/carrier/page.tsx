@@ -24,18 +24,6 @@ export default function CarrierPage() {
     return d;
   });
 
-  const { orders, loading, error, mutate } = useOzonOrders({
-    status: "all",
-    startDate,
-    endDate,
-    sellerId: selectedSellerId,
-  });
-
-  // Manual refresh function
-  const handleRefresh = useCallback(() => {
-    mutate();
-  }, [mutate]);
-
   // Gelişmiş Filtre State'leri
   const [filters, setFilters] = useState({
     postingNumber: "",
@@ -77,6 +65,18 @@ export default function CarrierPage() {
     };
     fetchSellers();
   }, []);
+
+  const { orders, loading, error, mutate } = useOzonOrders({
+    status: "all",
+    startDate,
+    endDate,
+    sellerId: selectedSellerId,
+  });
+
+  // Manual refresh function
+  const handleRefresh = useCallback(() => {
+    mutate();
+  }, [mutate]);
 
   // Fatura ve ETGB Kayıtlarını Kontrol Et
   useEffect(() => {
