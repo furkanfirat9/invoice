@@ -24,7 +24,17 @@ export default function CarrierPage() {
     return d;
   });
 
-  const { orders, loading, error, fetchOrders } = useOzonOrders();
+  const { orders, loading, error, mutate } = useOzonOrders({
+    status: "all",
+    startDate,
+    endDate,
+    sellerId: selectedSellerId,
+  });
+
+  // Manual refresh function
+  const handleRefresh = useCallback(() => {
+    mutate();
+  }, [mutate]);
 
   // Gelişmiş Filtre State'leri
   const [filters, setFilters] = useState({
@@ -67,16 +77,6 @@ export default function CarrierPage() {
     };
     fetchSellers();
   }, []);
-
-  // Verileri Çek (Mağaza seçildiğinde tetiklenir)
-  useEffect(() => {
-    if (selectedSellerId) {
-      fetchOrders("all", startDate, endDate, selectedSellerId);
-    } else if (sellers.length > 0) {
-      // Eğer selectedSellerId boşsa ama sellers yüklendiyse, ilkini seç ve yükle
-      setSelectedSellerId(sellers[0].id);
-    }
-  }, [fetchOrders, startDate, endDate, selectedSellerId, sellers]);
 
   // Fatura ve ETGB Kayıtlarını Kontrol Et
   useEffect(() => {
