@@ -11,10 +11,20 @@ import { useLanguage } from "@/contexts/LanguageContext";
 export default function CarrierPage() {
   const { t } = useLanguage();
 
+  // Başlangıç tarihi kısıtlaması: 18.11.2025
+  const MIN_DATE = new Date("2025-11-18");
+  MIN_DATE.setHours(0, 0, 0, 0);
+
   // Tarih State'leri (Mutable)
   const [startDate, setStartDate] = useState<Date>(() => {
-    const d = new Date("2025-11-18");
+    const d = new Date();
+    d.setDate(d.getDate() - 14); // Son 2 hafta
     d.setHours(0, 0, 0, 0);
+
+    // Eğer 2 hafta öncesi MIN_DATE'den küçükse, MIN_DATE'i kullan
+    if (d < MIN_DATE) {
+      return new Date(MIN_DATE);
+    }
     return d;
   });
 
@@ -200,10 +210,6 @@ export default function CarrierPage() {
     return `${year}-${month}-${day}`;
   };
 
-  // Başlangıç tarihi kısıtlaması: 18.11.2025
-  const MIN_DATE = new Date("2025-11-18");
-  MIN_DATE.setHours(0, 0, 0, 0);
-
   const handleDateChange = (type: 'start' | 'end', value: string) => {
     const [year, month, day] = value.split('-').map(Number);
     const newDate = new Date(year, month - 1, day);
@@ -246,8 +252,16 @@ export default function CarrierPage() {
       trackingNumber: "",
     });
 
-    // Tarihleri varsayılana döndür
-    setStartDate(MIN_DATE);
+    // Tarihleri varsayılana döndür (Son 2 hafta veya MIN_DATE)
+    const defaultStart = new Date();
+    defaultStart.setDate(defaultStart.getDate() - 14);
+    defaultStart.setHours(0, 0, 0, 0);
+
+    if (defaultStart < MIN_DATE) {
+      setStartDate(new Date(MIN_DATE));
+    } else {
+      setStartDate(defaultStart);
+    }
 
     const defaultEnd = new Date();
     defaultEnd.setHours(23, 59, 59, 999);

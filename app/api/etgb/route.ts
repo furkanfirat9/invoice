@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import crypto from "crypto";
 
 // ETGB bilgilerini getir
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json(
+      { error: "Oturum açmanız gerekiyor" },
+      { status: 401 }
+    );
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const postingNumber = searchParams.get("postingNumber");
 
@@ -38,6 +49,14 @@ export async function GET(request: NextRequest) {
 // ETGB yükle/güncelle
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json(
+        { error: "Oturum açmanız gerekiyor" },
+        { status: 401 }
+      );
+    }
+
     const formData = await request.formData();
     const postingNumber = formData.get("postingNumber") as string;
     const file = formData.get("file") as File;
@@ -74,7 +93,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Dosyayı Vercel Blob'a yükle
-    const blob = await put(`etgb/${file.name}`, file, {
+    const randomId = crypto.randomUUID();
+    const blob = await put(`etgb/${postingNumber}-${randomId}.pdf`, file, {
       access: "public",
     });
 
@@ -117,6 +137,14 @@ export async function POST(request: NextRequest) {
 // ETGB sil
 export async function DELETE(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json(
+        { error: "Oturum açmanız gerekiyor" },
+        { status: 401 }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const postingNumber = searchParams.get("postingNumber");
 

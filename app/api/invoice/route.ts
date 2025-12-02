@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import crypto from "crypto";
 
 // Invoice kaydetme veya güncelleme
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json(
+        { error: "Oturum açmanız gerekiyor" },
+        { status: 401 }
+      );
+    }
+
     const formData = await request.formData();
 
     const postingNumber = formData.get("postingNumber") as string;
@@ -24,6 +35,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Dosya boyutu kontrolü (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "Dosya boyutu 5MB'dan büyük olamaz" },
+        { status: 400 }
+      );
+    }
+
+    // Sadece PDF kontrolü
+    if (file.type !== "application/pdf") {
+      return NextResponse.json(
+        { error: "Sadece PDF dosyası yüklenebilir" },
+        { status: 400 }
+      );
+    }
+
     // PDF dosyasını Vercel Blob'a yükle
     let pdfUrl: string | null = null;
     try {
@@ -31,7 +58,9 @@ export async function POST(request: NextRequest) {
         throw new Error("BLOB_READ_WRITE_TOKEN environment variable bulunamadı");
       }
 
-      const blob = await put(`invoices/${postingNumber}-${Date.now()}.pdf`, file, {
+      // Dosya ismini tahmin edilemez yap
+      const randomId = crypto.randomUUID();
+      const blob = await put(`invoices/${postingNumber}-${randomId}.pdf`, file, {
         access: "public",
         contentType: "application/pdf",
       });
@@ -41,7 +70,7 @@ export async function POST(request: NextRequest) {
       console.error("Blob upload error:", blobError);
       // Blob yükleme hatası durumunda hata döndür
       return NextResponse.json(
-        { error: "PDF dosyası yüklenemedi", details: blobError.message },
+        { error: "PDF dosyası yüklenemedi" },
         { status: 500 }
       );
     }
@@ -81,7 +110,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             error: "Veritabanı bağlantı hatası",
-            details: "Veritabanı sunucusuna erişilemiyor. Lütfen DATABASE_URL environment variable'ını kontrol edin.",
             code: "DATABASE_CONNECTION_ERROR"
           },
           { status: 503 }
@@ -96,7 +124,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Invoice save error:", error);
     return NextResponse.json(
-      { error: "Fatura kaydedilemedi", details: error.message },
+      { error: "Fatura kaydedilemedi" },
       { status: 500 }
     );
   }
@@ -105,6 +133,14 @@ export async function POST(request: NextRequest) {
 // Invoice yükleme (postingNumber'a göre)
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json(
+        { error: "Oturum açmanız gerekiyor" },
+        { status: 401 }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const postingNumber = searchParams.get("postingNumber");
 
@@ -130,7 +166,7 @@ export async function GET(request: NextRequest) {
       }
       // Diğer veritabanı hataları için hata döndür
       return NextResponse.json(
-        { error: "Veritabanı hatası", details: dbError.message },
+        { error: "Veritabanı hatası" },
         { status: 500 }
       );
     }
@@ -139,15 +175,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ invoice: null });
     }
 
-    // Blob dosya kontrolünü kaldırdık (Performans ve 500 hatası önleme için)
-    // Veritabanında kayıt varsa dosya var kabul ediyoruz.
-    // Eğer dosya silinmişse kullanıcı indirmeye çalıştığında hata alacaktır, bu daha güvenli.
-
     return NextResponse.json({ invoice });
   } catch (error: any) {
     console.error("Invoice load error:", error);
     return NextResponse.json(
-      { error: "Fatura yüklenemedi", details: error.message },
+      { error: "Fatura yüklenemedi" },
       { status: 500 }
     );
   }
