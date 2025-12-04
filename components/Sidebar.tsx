@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { isElif } from "@/lib/auth-utils";
 
 interface MenuItem {
   key: string;
@@ -217,38 +218,63 @@ export default function Sidebar() {
       {/* Menu Items */}
       <nav className="flex-1 overflow-y-auto p-4">
         <ul className="space-y-1">
-          {menuItems.map((item) => {
-            const isActive = pathname === item.path;
-            return (
-              <li key={item.path}>
-                <button
-                  onClick={() => router.push(item.path)}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-300 hover:bg-slate-800 hover:text-white"
-                    }`}
-                >
-                  {item.icon}
-                  <span className="font-medium">{t(item.key)}</span>
-                  {isActive && (
-                    <svg
-                      className="w-4 h-4 ml-auto"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  )}
-                </button>
-              </li>
-            );
-          })}
+          {(() => {
+            const displayMenuItems = [...menuItems];
+            if (isElif(session?.user?.email)) {
+              displayMenuItems.push({
+                key: "documents",
+                icon: (
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                ),
+                path: "/dashboard/belgeler",
+              });
+            }
+
+            return displayMenuItems.map((item) => {
+              const isActive = pathname === item.path;
+              return (
+                <li key={item.path}>
+                  <button
+                    onClick={() => router.push(item.path)}
+                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-300 hover:bg-slate-800 hover:text-white"
+                      }`}
+                  >
+                    {item.icon}
+                    <span className="font-medium">{t(item.key)}</span>
+                    {isActive && (
+                      <svg
+                        className="w-4 h-4 ml-auto"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                </li>
+              );
+            });
+          })()}
         </ul>
       </nav>
 

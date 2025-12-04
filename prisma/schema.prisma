@@ -21,6 +21,7 @@ model User {
   ozonClientId  String?
   ozonApiKey    String?
   storeName     String?
+  orderDocuments OrderDocument[]
 }
 
 enum UserRole {
@@ -49,3 +50,30 @@ model Invoice {
   updatedAt       DateTime  @updatedAt
 }
 
+// Sipariş Belgeleri (Belgeler sayfası için)
+model OrderDocument {
+  id              String   @id @default(cuid())
+  postingNumber   String   @unique  // Ozon gönderi numarası
+  userId          String   // Belgeyi yükleyen kullanıcı
+
+  // Alış Faturası
+  alisFaturaNo    String?
+  alisPdfUrl      String?
+
+  // Satış Faturası
+  satisFaturaTarihi DateTime?
+  satisFaturaNo     String?
+  satisAliciAdSoyad String?
+  satisPdfUrl       String?
+
+  // ETGB
+  etgbNo          String?
+  etgbTutar       Float?
+  etgbDovizCinsi  String?  // USD veya EUR
+  etgbPdfUrl      String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id])
+}

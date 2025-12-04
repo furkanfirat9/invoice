@@ -28,6 +28,7 @@ const translations = {
     "paymentsOfReturn": "İade Ödemeleri",
     "api": "API",
     "setting": "Ayarlar",
+    "documents": "Belgeler",
     "logout": "Çıkış Yap",
 
     // Dashboard
@@ -169,6 +170,7 @@ const translations = {
     "paymentsOfReturn": "Платежи возврата",
     "api": "API",
     "setting": "Настройки",
+    "documents": "Документы",
     "logout": "Выйти",
     "carrierPanelTitle": "Панель перевозчика",
     "carrierRole": "ПЕРЕВОЗЧИК (служба доставки)",
