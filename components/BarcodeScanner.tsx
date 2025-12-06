@@ -9,6 +9,14 @@ interface BarcodeScannerProps {
     isActive: boolean;
 }
 
+// Ozon barkod formatı doğrulama: RAKAMLAR-RAKAMLAR-RAKAMLAR
+// Örnekler: 61305981-0070-3, 0118471972-0250-1, 0124177088-0063-1
+const OZON_BARCODE_REGEX = /^\d{8,10}-\d{3,4}-\d{1,3}$/;
+
+function isValidOzonBarcode(barcode: string): boolean {
+    return OZON_BARCODE_REGEX.test(barcode);
+}
+
 export default function BarcodeScanner({
     onScan,
     onError,
@@ -17,12 +25,13 @@ export default function BarcodeScanner({
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const [cameraError, setCameraError] = useState<string | null>(null);
+    const [invalidScan, setInvalidScan] = useState<string | null>(null);
     const lastScannedRef = useRef<string>("");
     const lastScanTimeRef = useRef<number>(0);
     const mountedRef = useRef(true);
 
     // Beep sesi çal
-    const playBeep = useCallback(() => {
+    const playBeep = useCallback((success: boolean = true) => {
         try {
             const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
             const oscillator = audioContext.createOscillator();
@@ -31,16 +40,17 @@ export default function BarcodeScanner({
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
 
-            oscillator.frequency.value = 1200;
+            // Başarılı: yüksek ton, başarısız: düşük ton
+            oscillator.frequency.value = success ? 1200 : 400;
             oscillator.type = "sine";
             gainNode.gain.value = 0.5;
 
             oscillator.start();
-            oscillator.stop(audioContext.currentTime + 0.2);
+            oscillator.stop(audioContext.currentTime + (success ? 0.15 : 0.3));
 
             // Vibrasyon
             if (navigator.vibrate) {
-                navigator.vibrate(100);
+                navigator.vibrate(success ? 100 : [100, 50, 100]);
             }
         } catch {
             console.log("Ses çalınamadı");
@@ -66,18 +76,10 @@ export default function BarcodeScanner({
                     }
                 }
 
+                // Sadece CODE_128 formatını destekle (Ozon barkodları bu formatta)
                 const html5QrCode = new Html5Qrcode(scannerId, {
                     formatsToSupport: [
                         Html5QrcodeSupportedFormats.CODE_128,
-                        Html5QrcodeSupportedFormats.CODE_39,
-                        Html5QrcodeSupportedFormats.CODE_93,
-                        Html5QrcodeSupportedFormats.EAN_13,
-                        Html5QrcodeSupportedFormats.EAN_8,
-                        Html5QrcodeSupportedFormats.UPC_A,
-                        Html5QrcodeSupportedFormats.UPC_E,
-                        Html5QrcodeSupportedFormats.ITF,
-                        Html5QrcodeSupportedFormats.CODABAR,
-                        Html5QrcodeSupportedFormats.QR_CODE,
                     ],
                     verbose: false,
                 });
@@ -87,8 +89,8 @@ export default function BarcodeScanner({
                 await html5QrCode.start(
                     { facingMode: "environment" },
                     {
-                        fps: 15,
-                        qrbox: { width: 300, height: 120 },
+                        fps: 10,
+                        qrbox: { width: 280, height: 80 },
                         aspectRatio: 1.0,
                         disableFlip: false,
                     },
@@ -96,10 +98,10 @@ export default function BarcodeScanner({
                         if (!mountedRef.current) return;
 
                         const now = Date.now();
-                        // Aynı barkodu 1.5 saniye içinde tekrar okuma
+                        // Aynı barkodu 2 saniye içinde tekrar okuma
                         if (
                             decodedText === lastScannedRef.current &&
-                            now - lastScanTimeRef.current < 1500
+                            now - lastScanTimeRef.current < 2000
                         ) {
                             return;
                         }
@@ -107,8 +109,22 @@ export default function BarcodeScanner({
                         lastScannedRef.current = decodedText;
                         lastScanTimeRef.current = now;
 
-                        playBeep();
-                        onScan(decodedText);
+                        // Ozon barkod formatını doğrula
+                        if (isValidOzonBarcode(decodedText)) {
+                            setInvalidScan(null);
+                            playBeep(true);
+                            onScan(decodedText);
+                        } else {
+                            // Geçersiz format - uyarı göster
+                            setInvalidScan(decodedText);
+                            playBeep(false);
+                            // 2 saniye sonra uyarıyı kaldır
+                            setTimeout(() => {
+                                if (mountedRef.current) {
+                                    setInvalidScan(null);
+                                }
+                            }, 2000);
+                        }
                     },
                     () => {
                         // Tarama devam ediyor
@@ -142,6 +158,7 @@ export default function BarcodeScanner({
             }
             if (mountedRef.current) {
                 setIsScanning(false);
+                setInvalidScan(null);
             }
         };
 
@@ -175,8 +192,15 @@ export default function BarcodeScanner({
             <div
                 id="barcode-scanner"
                 className="w-full rounded-xl overflow-hidden bg-black"
-                style={{ minHeight: "350px" }}
+                style={{ minHeight: "300px" }}
             />
+
+            {/* Geçersiz Barkod Uyarısı */}
+            {invalidScan && (
+                <div className="absolute top-4 left-4 right-4 p-3 bg-red-600/90 rounded-lg text-white text-center text-sm animate-pulse">
+                    ❌ Geçersiz format: {invalidScan.substring(0, 20)}...
+                </div>
+            )}
 
             {/* Hata Mesajı */}
             {cameraError && (
@@ -204,23 +228,24 @@ export default function BarcodeScanner({
                 </div>
             )}
 
-            {/* Tarama Çerçevesi */}
+            {/* Tarama Çerçevesi - Üst barkod için optimize edilmiş dar alan */}
             {isScanning && !cameraError && (
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                    <div className="w-80 h-28 border-2 border-green-500/70 rounded-lg relative bg-green-500/5">
+                    <div className="w-72 h-16 border-2 border-green-500/70 rounded-lg relative bg-green-500/5">
                         {/* Köşe işaretleri */}
-                        <div className="absolute -top-1 -left-1 w-10 h-10 border-t-4 border-l-4 border-green-400 rounded-tl-lg" />
-                        <div className="absolute -top-1 -right-1 w-10 h-10 border-t-4 border-r-4 border-green-400 rounded-tr-lg" />
-                        <div className="absolute -bottom-1 -left-1 w-10 h-10 border-b-4 border-l-4 border-green-400 rounded-bl-lg" />
-                        <div className="absolute -bottom-1 -right-1 w-10 h-10 border-b-4 border-r-4 border-green-400 rounded-br-lg" />
+                        <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-green-400 rounded-tl-lg" />
+                        <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-green-400 rounded-tr-lg" />
+                        <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-green-400 rounded-bl-lg" />
+                        <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-green-400 rounded-br-lg" />
 
-                        {/* Tarama çizgisi animasyonu */}
-                        <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-1 bg-gradient-to-r from-transparent via-green-400 to-transparent animate-pulse" />
+                        {/* Tarama çizgisi */}
+                        <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-transparent via-green-400 to-transparent animate-pulse" />
                     </div>
 
                     {/* Alt bilgi */}
                     <div className="absolute bottom-4 left-0 right-0 text-center">
-                        <p className="text-white/70 text-sm">Barkodu çerçeveye hizalayın</p>
+                        <p className="text-white/80 text-sm font-medium">Üstteki barkodu çerçeveye hizalayın</p>
+                        <p className="text-white/50 text-xs mt-1">Format: XXXXXXXX-XXXX-X</p>
                     </div>
                 </div>
             )}
