@@ -29,6 +29,7 @@ const translations = {
     "api": "API",
     "setting": "Ayarlar",
     "documents": "Belgeler",
+    "courierHandover": "Kurye Teslim",
     "logout": "Çıkış Yap",
 
     // Dashboard
@@ -171,6 +172,7 @@ const translations = {
     "api": "API",
     "setting": "Настройки",
     "documents": "Документы",
+    "courierHandover": "Передача курьеру",
     "logout": "Выйти",
     "carrierPanelTitle": "Панель перевозчика",
     "carrierRole": "ПЕРЕВОЗЧИК (служба доставки)",

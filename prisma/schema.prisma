@@ -22,6 +22,7 @@ model User {
   ozonApiKey    String?
   storeName     String?
   orderDocuments OrderDocument[]
+  courierHandovers CourierHandover[]
 }
 
 enum UserRole {
@@ -76,4 +77,33 @@ model OrderDocument {
   updatedAt       DateTime  @updatedAt
 
   user            User      @relation(fields: [userId], references: [id])
+}
+
+// Kurye Teslim Kaydı
+model CourierHandover {
+  id            String   @id @default(cuid())
+  handoverDate  DateTime @default(now())
+  note          String?
+  userId        String
+  
+  barcodes      HandoverBarcode[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+// Teslim Edilen Barkod
+model HandoverBarcode {
+  id            String   @id @default(cuid())
+  barcode       String
+  scannedAt     DateTime @default(now())
+  
+  handoverId    String
+  handover      CourierHandover @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime @default(now())
+  
+  @@unique([barcode, handoverId])
 }
