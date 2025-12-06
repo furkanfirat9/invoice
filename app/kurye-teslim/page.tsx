@@ -10,7 +10,7 @@ import dynamic from "next/dynamic";
 const BarcodeScanner = dynamic(() => import("@/components/BarcodeScanner"), {
     ssr: false,
     loading: () => (
-        <div className="w-full h-64 bg-gray-800 rounded-xl flex items-center justify-center">
+        <div className="w-full h-72 bg-gray-800 rounded-xl flex items-center justify-center">
             <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
         </div>
     ),
@@ -81,7 +81,6 @@ export default function KuryeTeslimPage() {
         // Aynı oturumda zaten tarandı mı?
         if (scannedBarcodes.includes(barcode)) {
             setDuplicateWarning(`"${barcode}" zaten bu listede!`);
-            // Kırmızı titreme efekti için kısa vibrasyon
             if (navigator.vibrate) {
                 navigator.vibrate([100, 50, 100]);
             }
@@ -116,7 +115,6 @@ export default function KuryeTeslimPage() {
             const data = await res.json();
 
             if (res.status === 409) {
-                // Daha önce teslim edilmiş barkodlar var
                 const duplicates = data.duplicates
                     ?.map((d: { barcode: string }) => d.barcode)
                     .join(", ");
@@ -128,14 +126,12 @@ export default function KuryeTeslimPage() {
                 throw new Error(data.error || "Kayıt başarısız");
             }
 
-            // Başarılı
             setSuccessMessage(`${scannedBarcodes.length} barkod başarıyla kaydedildi!`);
             setScannedBarcodes([]);
             setNote("");
             setIsScanning(false);
             loadHandovers();
 
-            // 3 saniye sonra mesajı kaldır
             setTimeout(() => setSuccessMessage(null), 3000);
         } catch (error) {
             console.error("Kayıt hatası:", error);
@@ -184,23 +180,38 @@ export default function KuryeTeslimPage() {
 
     return (
         <div className="min-h-screen bg-gray-900 text-white">
-            {/* Header */}
-            <div className="sticky top-0 z-10 bg-gray-900 border-b border-gray-800 px-4 py-3">
+            {/* Header - Sticky */}
+            <div className="sticky top-0 z-50 bg-gray-900/95 backdrop-blur border-b border-gray-800 px-4 py-4">
                 <div className="flex items-center justify-between max-w-lg mx-auto">
+                    {/* Geri Butonu */}
+                    <button
+                        onClick={() => router.push("/dashboard")}
+                        className="p-2 -ml-2 text-gray-400 hover:text-white active:scale-95 transition"
+                    >
+                        <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+
                     <h1 className="text-xl font-bold">Kurye Teslim</h1>
+
+                    {/* Geçmiş Toggle */}
                     <button
                         onClick={() => setShowHistory(!showHistory)}
-                        className="text-sm px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition"
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition active:scale-95 ${showHistory
+                                ? "bg-blue-600 text-white"
+                                : "bg-gray-800 text-gray-300"
+                            }`}
                     >
                         {showHistory ? "Tarama" : "Geçmiş"}
                     </button>
                 </div>
             </div>
 
-            <div className="max-w-lg mx-auto p-4">
+            <div className="p-4 max-w-lg mx-auto">
                 {/* Başarı Mesajı */}
                 {successMessage && (
-                    <div className="mb-4 p-4 bg-green-600/20 border border-green-500 rounded-xl text-green-400 text-center animate-pulse">
+                    <div className="mb-4 p-4 bg-green-600/20 border border-green-500 rounded-xl text-green-400 text-center text-lg animate-pulse">
                         ✓ {successMessage}
                     </div>
                 )}
@@ -211,7 +222,10 @@ export default function KuryeTeslimPage() {
                         <h2 className="text-lg font-semibold text-gray-300">Teslim Geçmişi</h2>
 
                         {handovers.length === 0 ? (
-                            <div className="text-center py-12 text-gray-500">
+                            <div className="text-center py-16 text-gray-500">
+                                <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
                                 Henüz teslim kaydı yok
                             </div>
                         ) : (
@@ -225,7 +239,7 @@ export default function KuryeTeslimPage() {
                                             <div className="text-sm text-gray-400">
                                                 {formatDate(handover.handoverDate)}
                                             </div>
-                                            <div className="text-lg font-semibold text-green-400">
+                                            <div className="text-xl font-semibold text-green-400">
                                                 {handover.barcodes.length} barkod
                                             </div>
                                             {handover.note && (
@@ -236,24 +250,23 @@ export default function KuryeTeslimPage() {
                                         </div>
                                         <button
                                             onClick={() => handleDelete(handover.id)}
-                                            className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition"
+                                            className="p-3 text-red-400 hover:bg-red-500/20 rounded-lg transition active:scale-95"
                                         >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                             </svg>
                                         </button>
                                     </div>
 
-                                    {/* Barkod listesi (açılır/kapanır) */}
                                     <details className="group">
-                                        <summary className="cursor-pointer text-sm text-blue-400 hover:text-blue-300">
+                                        <summary className="cursor-pointer text-sm text-blue-400 hover:text-blue-300 py-2">
                                             Barkodları göster
                                         </summary>
                                         <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
                                             {handover.barcodes.map((b) => (
                                                 <div
                                                     key={b.id}
-                                                    className="text-xs font-mono bg-gray-700 px-2 py-1 rounded"
+                                                    className="text-xs font-mono bg-gray-700 px-3 py-2 rounded"
                                                 >
                                                     {b.barcode}
                                                 </div>
@@ -271,36 +284,38 @@ export default function KuryeTeslimPage() {
                             /* Başlat Butonu */
                             <button
                                 onClick={() => setIsScanning(true)}
-                                className="w-full py-6 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-2xl font-bold text-xl shadow-lg shadow-blue-600/30 transition-all active:scale-95"
+                                className="w-full py-10 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-2xl font-bold text-2xl shadow-lg shadow-blue-600/30 transition-all active:scale-95"
                             >
-                                <div className="flex flex-col items-center gap-2">
-                                    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                <div className="flex flex-col items-center gap-4">
+                                    <svg className="w-20 h-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                                     </svg>
-                                    Taramaya Başla
+                                    <span>Taramaya Başla</span>
                                 </div>
                             </button>
                         ) : (
                             <>
                                 {/* Kamera */}
-                                <BarcodeScanner
-                                    isActive={isScanning}
-                                    onScan={handleScan}
-                                />
+                                <div className="rounded-xl overflow-hidden bg-black">
+                                    <BarcodeScanner
+                                        isActive={isScanning}
+                                        onScan={handleScan}
+                                    />
+                                </div>
 
                                 {/* Uyarı Mesajı */}
                                 {duplicateWarning && (
-                                    <div className="p-3 bg-red-600/20 border border-red-500 rounded-xl text-red-400 text-sm text-center">
+                                    <div className="p-4 bg-red-600/20 border border-red-500 rounded-xl text-red-400 text-center">
                                         ⚠️ {duplicateWarning}
                                     </div>
                                 )}
 
                                 {/* Taranan Barkod Sayısı */}
-                                <div className="text-center py-2">
-                                    <span className="text-3xl font-bold text-green-400">
+                                <div className="text-center py-3">
+                                    <span className="text-5xl font-bold text-green-400">
                                         {scannedBarcodes.length}
                                     </span>
-                                    <span className="text-gray-400 ml-2">barkod tarandı</span>
+                                    <span className="text-gray-400 ml-3 text-xl">barkod tarandı</span>
                                 </div>
 
                                 {/* Taranan Barkod Listesi */}
@@ -310,16 +325,16 @@ export default function KuryeTeslimPage() {
                                             {scannedBarcodes.map((barcode, index) => (
                                                 <div
                                                     key={`${barcode}-${index}`}
-                                                    className="flex items-center justify-between bg-gray-700 rounded-lg px-3 py-2"
+                                                    className="flex items-center justify-between bg-gray-700 rounded-lg px-4 py-3"
                                                 >
                                                     <span className="font-mono text-sm truncate flex-1">
                                                         {barcode}
                                                     </span>
                                                     <button
                                                         onClick={() => removeBarcode(barcode)}
-                                                        className="ml-2 p-1 text-red-400 hover:bg-red-500/20 rounded"
+                                                        className="ml-3 p-2 text-red-400 hover:bg-red-500/20 rounded active:scale-95"
                                                     >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                                         </svg>
                                                     </button>
@@ -335,11 +350,11 @@ export default function KuryeTeslimPage() {
                                     placeholder="Not ekle (opsiyonel)"
                                     value={note}
                                     onChange={(e) => setNote(e.target.value)}
-                                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 text-white placeholder-gray-500"
+                                    className="w-full px-4 py-4 bg-gray-800 border border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 text-lg"
                                 />
 
                                 {/* Aksiyonlar */}
-                                <div className="flex gap-3">
+                                <div className="flex gap-3 pt-2 pb-6">
                                     <button
                                         onClick={() => {
                                             setIsScanning(false);
@@ -347,20 +362,20 @@ export default function KuryeTeslimPage() {
                                             setNote("");
                                             setDuplicateWarning(null);
                                         }}
-                                        className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-medium transition"
+                                        className="flex-1 py-5 bg-gray-700 hover:bg-gray-600 rounded-xl font-semibold text-xl transition active:scale-95"
                                     >
                                         İptal
                                     </button>
                                     <button
                                         onClick={handleSave}
                                         disabled={scannedBarcodes.length === 0 || isSaving}
-                                        className="flex-1 py-3 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-xl font-bold transition flex items-center justify-center gap-2"
+                                        className="flex-1 py-5 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-xl font-bold text-xl transition active:scale-95 flex items-center justify-center gap-2"
                                     >
                                         {isSaving ? (
-                                            <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
+                                            <div className="animate-spin w-7 h-7 border-3 border-white border-t-transparent rounded-full" />
                                         ) : (
                                             <>
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                                 </svg>
                                                 Kaydet
