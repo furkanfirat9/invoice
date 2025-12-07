@@ -28,6 +28,7 @@ export default function BarcodeScanner({
     const [isScanning, setIsScanning] = useState(false);
     const [cameraError, setCameraError] = useState<string | null>(null);
     const [invalidScan, setInvalidScan] = useState<string | null>(null);
+    const [resolution, setResolution] = useState<string>("");
     const lastScannedRef = useRef<string>("");
     const lastScanTimeRef = useRef<number>(0);
     const mountedRef = useRef(true);
@@ -73,22 +74,57 @@ export default function BarcodeScanner({
                     streamRef.current.getTracks().forEach(track => track.stop());
                 }
 
-                // YÜKSEK ÇÖZÜNÜRLÜKLÜ kamera akışı iste
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: "environment",        // Arka kamera
-                        width: { ideal: 1920, min: 1280 }, // Full HD veya HD
-                        height: { ideal: 1080, min: 720 },
-                        // @ts-expect-error - focusMode bazı tarayıcılarda desteklenir
-                        focusMode: "continuous",          // Sürekli odaklama
-                    },
-                    audio: false,
-                });
+                // Önce mevcut kameraların en yüksek çözünürlüğünü bul
+                let stream: MediaStream;
+
+                try {
+                    // En yüksek çözünürlük ile dene (4K)
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: { exact: "environment" },
+                            width: { ideal: 4096 },
+                            height: { ideal: 2160 },
+                        },
+                        audio: false,
+                    });
+                } catch {
+                    try {
+                        // Full HD ile dene
+                        stream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                facingMode: "environment",
+                                width: { ideal: 1920 },
+                                height: { ideal: 1080 },
+                            },
+                            audio: false,
+                        });
+                    } catch {
+                        // Son çare - herhangi bir arka kamera
+                        stream = await navigator.mediaDevices.getUserMedia({
+                            video: { facingMode: "environment" },
+                            audio: false,
+                        });
+                    }
+                }
 
                 streamRef.current = stream;
 
+                // Gerçek çözünürlüğü kontrol et ve logla
+                const videoTrack = stream.getVideoTracks()[0];
+                const settings = videoTrack.getSettings();
+                console.log("📷 Kamera Çözünürlüğü:", settings.width, "x", settings.height);
+                setResolution(`${settings.width}x${settings.height}`);
+
                 // Video elementine bağla
                 videoRef.current.srcObject = stream;
+
+                // Video yüklenene kadar bekle
+                await new Promise<void>((resolve) => {
+                    if (videoRef.current) {
+                        videoRef.current.onloadedmetadata = () => resolve();
+                    }
+                });
+
                 await videoRef.current.play();
 
                 // ZXing okuyucu oluştur - sadece CODE_128 formatı
@@ -277,7 +313,7 @@ export default function BarcodeScanner({
                     {/* Alt bilgi */}
                     <div className="absolute bottom-4 left-0 right-0 text-center">
                         <p className="text-white/80 text-sm font-medium">Barkodu çerçeveye hizalayın</p>
-                        <p className="text-white/50 text-xs mt-1">HD Kamera • Format: XXXXXXXX-XXXX-X</p>
+                        <p className="text-white/50 text-xs mt-1">📷 {resolution || "..."} • Format: XXXXXXXX-XXXX-X</p>
                     </div>
                 </div>
             )}
