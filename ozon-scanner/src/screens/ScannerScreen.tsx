@@ -137,26 +137,22 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
                 {
                     text: "Kaydet",
                     onPress: async () => {
-                        let successCount = 0;
-                        let errorCount = 0;
+                        // Tüm barkodları tek seferde gönder
+                        const barcodeList = scannedBarcodes.map(h => h.barcode);
+                        const response = await saveHandover(barcodeList, note, token);
 
-                        for (const handover of scannedBarcodes) {
-                            const response = await saveHandover(handover.barcode, note, token);
-                            if (response.success) {
-                                successCount++;
-                            } else {
-                                errorCount++;
-                            }
-                        }
-
-                        Alert.alert(
-                            "Sonuç",
-                            `${successCount} başarılı, ${errorCount} hatalı`
-                        );
-
-                        if (successCount > 0) {
+                        if (response.success) {
+                            Alert.alert(
+                                "Başarılı",
+                                `${barcodeList.length} barkod kaydedildi`
+                            );
                             setScannedBarcodes([]);
                             setNote("");
+                        } else {
+                            Alert.alert(
+                                "Hata",
+                                response.error || "Kaydetme başarısız"
+                            );
                         }
                     },
                 },

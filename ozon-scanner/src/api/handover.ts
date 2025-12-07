@@ -55,18 +55,24 @@ export async function login(
 
 // Barkod kaydet
 export async function saveHandover(
-    barcode: string,
+    barcodes: string[],
     note: string,
     token: string
 ): Promise<HandoverResponse> {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/handover`, {
+        // Token'dan userId çıkar
+        const user = JSON.parse(token);
+
+        const response = await fetch(`${API_BASE_URL}/api/mobile/handover`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ barcode, note }),
+            body: JSON.stringify({
+                barcodes,
+                note,
+                userId: user.id
+            }),
         });
 
         const data = await response.json();
