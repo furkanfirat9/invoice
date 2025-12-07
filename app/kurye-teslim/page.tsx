@@ -4,17 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { isElif } from "@/lib/auth-utils";
-import dynamic from "next/dynamic";
-
-// BarcodeScanner'ı client-side only olarak yükle
-const BarcodeScanner = dynamic(() => import("@/components/BarcodeScanner"), {
-    ssr: false,
-    loading: () => (
-        <div className="w-full h-72 bg-gray-800 rounded-xl flex items-center justify-center">
-            <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
-        </div>
-    ),
-});
 
 interface HandoverBarcode {
     id: string;
@@ -35,15 +24,9 @@ export default function KuryeTeslimPage() {
     const router = useRouter();
 
     // State
-    const [isScanning, setIsScanning] = useState(false);
-    const [scannedBarcodes, setScannedBarcodes] = useState<string[]>([]);
-    const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
-    const [note, setNote] = useState("");
-    const [isSaving, setIsSaving] = useState(false);
     const [handovers, setHandovers] = useState<Handover[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [showHistory, setShowHistory] = useState(false);
-    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
     // Yetki kontrolü
     useEffect(() => {
@@ -53,7 +36,7 @@ export default function KuryeTeslimPage() {
         }
     }, [session, status, router]);
 
-    // Geçmiş teslimatları yükle
+    // Teslimatları yükle
     const loadHandovers = useCallback(async () => {
         try {
             const res = await fetch("/api/courier-handover");
@@ -62,7 +45,7 @@ export default function KuryeTeslimPage() {
                 setHandovers(data.handovers || []);
             }
         } catch (error) {
-            console.error("Geçmiş yüklenirken hata:", error);
+            console.error("Veri yüklenirken hata:", error);
         } finally {
             setIsLoading(false);
         }
@@ -73,73 +56,6 @@ export default function KuryeTeslimPage() {
             loadHandovers();
         }
     }, [session, loadHandovers]);
-
-    // Barkod tarandığında
-    const handleScan = useCallback((barcode: string) => {
-        setDuplicateWarning(null);
-
-        // Aynı oturumda zaten tarandı mı?
-        if (scannedBarcodes.includes(barcode)) {
-            setDuplicateWarning(`"${barcode}" zaten bu listede!`);
-            if (navigator.vibrate) {
-                navigator.vibrate([100, 50, 100]);
-            }
-            return;
-        }
-
-        setScannedBarcodes((prev) => [...prev, barcode]);
-    }, [scannedBarcodes]);
-
-    // Barkodu listeden kaldır
-    const removeBarcode = (barcode: string) => {
-        setScannedBarcodes((prev) => prev.filter((b) => b !== barcode));
-    };
-
-    // Teslimi kaydet
-    const handleSave = async () => {
-        if (scannedBarcodes.length === 0) return;
-
-        setIsSaving(true);
-        setDuplicateWarning(null);
-
-        try {
-            const res = await fetch("/api/courier-handover", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    barcodes: scannedBarcodes,
-                    note: note.trim() || null,
-                }),
-            });
-
-            const data = await res.json();
-
-            if (res.status === 409) {
-                const duplicates = data.duplicates
-                    ?.map((d: { barcode: string }) => d.barcode)
-                    .join(", ");
-                setDuplicateWarning(`Bu barkodlar daha önce teslim edilmiş: ${duplicates}`);
-                return;
-            }
-
-            if (!res.ok) {
-                throw new Error(data.error || "Kayıt başarısız");
-            }
-
-            setSuccessMessage(`${scannedBarcodes.length} barkod başarıyla kaydedildi!`);
-            setScannedBarcodes([]);
-            setNote("");
-            setIsScanning(false);
-            loadHandovers();
-
-            setTimeout(() => setSuccessMessage(null), 3000);
-        } catch (error) {
-            console.error("Kayıt hatası:", error);
-            setDuplicateWarning("Kayıt sırasında bir hata oluştu");
-        } finally {
-            setIsSaving(false);
-        }
-    };
 
     // Teslimi sil
     const handleDelete = async (id: string) => {
@@ -170,6 +86,19 @@ export default function KuryeTeslimPage() {
         });
     };
 
+    // Kısa tarih formatla
+    const formatShortDate = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString("tr-TR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+        });
+    };
+
+    // Toplam barkod sayısı
+    const totalBarcodes = handovers.reduce((sum, h) => sum + h.barcodes.length, 0);
+
     if (status === "loading" || isLoading) {
         return (
             <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -180,10 +109,9 @@ export default function KuryeTeslimPage() {
 
     return (
         <div className="min-h-screen bg-gray-900 text-white">
-            {/* Header - Sticky */}
+            {/* Header */}
             <div className="sticky top-0 z-50 bg-gray-900/95 backdrop-blur border-b border-gray-800 px-4 py-4">
-                <div className="flex items-center justify-between max-w-lg mx-auto">
-                    {/* Geri Butonu */}
+                <div className="flex items-center justify-between max-w-4xl mx-auto">
                     <button
                         onClick={() => router.push("/dashboard")}
                         className="p-2 -ml-2 text-gray-400 hover:text-white active:scale-95 transition"
@@ -193,198 +121,129 @@ export default function KuryeTeslimPage() {
                         </svg>
                     </button>
 
-                    <h1 className="text-xl font-bold">Kurye Teslim</h1>
+                    <h1 className="text-xl font-bold">📦 Kurye Teslim Kayıtları</h1>
 
-                    {/* Geçmiş Toggle */}
                     <button
-                        onClick={() => setShowHistory(!showHistory)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition active:scale-95 ${showHistory
-                                ? "bg-blue-600 text-white"
-                                : "bg-gray-800 text-gray-300"
-                            }`}
+                        onClick={loadHandovers}
+                        className="p-2 text-gray-400 hover:text-white active:scale-95 transition"
+                        title="Yenile"
                     >
-                        {showHistory ? "Tarama" : "Geçmiş"}
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
                     </button>
                 </div>
             </div>
 
-            <div className="p-4 max-w-lg mx-auto">
-                {/* Başarı Mesajı */}
-                {successMessage && (
-                    <div className="mb-4 p-4 bg-green-600/20 border border-green-500 rounded-xl text-green-400 text-center text-lg animate-pulse">
-                        ✓ {successMessage}
+            <div className="p-4 max-w-4xl mx-auto">
+                {/* Özet Kartları */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 border border-blue-500/30 rounded-xl p-4 text-center">
+                        <div className="text-3xl font-bold text-blue-400">{handovers.length}</div>
+                        <div className="text-sm text-gray-400">Toplam Teslim</div>
                     </div>
-                )}
+                    <div className="bg-gradient-to-br from-green-600/20 to-green-800/20 border border-green-500/30 rounded-xl p-4 text-center">
+                        <div className="text-3xl font-bold text-green-400">{totalBarcodes}</div>
+                        <div className="text-sm text-gray-400">Toplam Barkod</div>
+                    </div>
+                </div>
 
-                {showHistory ? (
-                    /* GEÇMİŞ GÖRÜNÜMÜ */
-                    <div className="space-y-4">
-                        <h2 className="text-lg font-semibold text-gray-300">Teslim Geçmişi</h2>
+                {/* Mobil Uygulama Bilgisi */}
+                <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 mb-6">
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl">📱</span>
+                        <div>
+                            <p className="text-sm text-gray-300">Barkod tarama <strong>Ozon Barkod</strong> mobil uygulamasından yapılmaktadır.</p>
+                            <p className="text-xs text-gray-500 mt-1">Mobil uygulama ile taranan barkodlar otomatik olarak burada listelenir.</p>
+                        </div>
+                    </div>
+                </div>
 
-                        {handovers.length === 0 ? (
-                            <div className="text-center py-16 text-gray-500">
-                                <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                </svg>
-                                Henüz teslim kaydı yok
-                            </div>
-                        ) : (
-                            handovers.map((handover) => (
+                {/* Tablo */}
+                {handovers.length === 0 ? (
+                    <div className="text-center py-16 text-gray-500">
+                        <svg className="w-20 h-20 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        <p className="text-lg">Henüz teslim kaydı yok</p>
+                        <p className="text-sm mt-2">Mobil uygulamadan barkod tarayarak kayıt oluşturun</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {handovers.map((handover) => (
+                            <div
+                                key={handover.id}
+                                className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden hover:border-gray-600 transition"
+                            >
+                                {/* Satır Başlığı */}
                                 <div
-                                    key={handover.id}
-                                    className="bg-gray-800 rounded-xl p-4 border border-gray-700"
+                                    className="flex items-center justify-between p-4 cursor-pointer"
+                                    onClick={() => setExpandedId(expandedId === handover.id ? null : handover.id)}
                                 >
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div>
-                                            <div className="text-sm text-gray-400">
-                                                {formatDate(handover.handoverDate)}
-                                            </div>
-                                            <div className="text-xl font-semibold text-green-400">
-                                                {handover.barcodes.length} barkod
-                                            </div>
-                                            {handover.note && (
-                                                <div className="text-sm text-gray-500 mt-1">
-                                                    Not: {handover.note}
-                                                </div>
-                                            )}
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-green-600/20 rounded-lg flex items-center justify-center">
+                                            <span className="text-xl font-bold text-green-400">{handover.barcodes.length}</span>
                                         </div>
+                                        <div>
+                                            <div className="font-medium">{formatShortDate(handover.handoverDate)}</div>
+                                            <div className="text-sm text-gray-500">{formatDate(handover.handoverDate).split(" ")[1]}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        {handover.note && (
+                                            <span className="px-2 py-1 bg-gray-700 rounded text-xs text-gray-400 hidden sm:block">
+                                                📝 Not var
+                                            </span>
+                                        )}
                                         <button
-                                            onClick={() => handleDelete(handover.id)}
-                                            className="p-3 text-red-400 hover:bg-red-500/20 rounded-lg transition active:scale-95"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDelete(handover.id);
+                                            }}
+                                            className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition active:scale-95"
                                         >
-                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                             </svg>
                                         </button>
+                                        <svg
+                                            className={`w-5 h-5 text-gray-500 transition-transform ${expandedId === handover.id ? 'rotate-180' : ''}`}
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
                                     </div>
+                                </div>
 
-                                    <details className="group">
-                                        <summary className="cursor-pointer text-sm text-blue-400 hover:text-blue-300 py-2">
-                                            Barkodları göster
-                                        </summary>
-                                        <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
-                                            {handover.barcodes.map((b) => (
+                                {/* Detay Bölümü */}
+                                {expandedId === handover.id && (
+                                    <div className="border-t border-gray-700 p-4 bg-gray-800/50">
+                                        {handover.note && (
+                                            <div className="mb-3 p-3 bg-gray-700/50 rounded-lg">
+                                                <span className="text-sm text-gray-400">Not: </span>
+                                                <span className="text-sm">{handover.note}</span>
+                                            </div>
+                                        )}
+
+                                        <div className="text-sm text-gray-400 mb-2">Barkodlar:</div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                                            {handover.barcodes.map((b, index) => (
                                                 <div
                                                     key={b.id}
-                                                    className="text-xs font-mono bg-gray-700 px-3 py-2 rounded"
+                                                    className="flex items-center gap-2 bg-gray-700 rounded-lg px-3 py-2"
                                                 >
-                                                    {b.barcode}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </details>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                ) : (
-                    /* TARAMA GÖRÜNÜMÜ */
-                    <div className="space-y-4">
-                        {!isScanning ? (
-                            /* Başlat Butonu */
-                            <button
-                                onClick={() => setIsScanning(true)}
-                                className="w-full py-10 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-2xl font-bold text-2xl shadow-lg shadow-blue-600/30 transition-all active:scale-95"
-                            >
-                                <div className="flex flex-col items-center gap-4">
-                                    <svg className="w-20 h-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                                    </svg>
-                                    <span>Taramaya Başla</span>
-                                </div>
-                            </button>
-                        ) : (
-                            <>
-                                {/* Kamera */}
-                                <div className="rounded-xl overflow-hidden bg-black">
-                                    <BarcodeScanner
-                                        isActive={isScanning}
-                                        onScan={handleScan}
-                                    />
-                                </div>
-
-                                {/* Uyarı Mesajı */}
-                                {duplicateWarning && (
-                                    <div className="p-4 bg-red-600/20 border border-red-500 rounded-xl text-red-400 text-center">
-                                        ⚠️ {duplicateWarning}
-                                    </div>
-                                )}
-
-                                {/* Taranan Barkod Sayısı */}
-                                <div className="text-center py-3">
-                                    <span className="text-5xl font-bold text-green-400">
-                                        {scannedBarcodes.length}
-                                    </span>
-                                    <span className="text-gray-400 ml-3 text-xl">barkod tarandı</span>
-                                </div>
-
-                                {/* Taranan Barkod Listesi */}
-                                {scannedBarcodes.length > 0 && (
-                                    <div className="bg-gray-800 rounded-xl p-3 max-h-48 overflow-y-auto">
-                                        <div className="space-y-2">
-                                            {scannedBarcodes.map((barcode, index) => (
-                                                <div
-                                                    key={`${barcode}-${index}`}
-                                                    className="flex items-center justify-between bg-gray-700 rounded-lg px-4 py-3"
-                                                >
-                                                    <span className="font-mono text-sm truncate flex-1">
-                                                        {barcode}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => removeBarcode(barcode)}
-                                                        className="ml-3 p-2 text-red-400 hover:bg-red-500/20 rounded active:scale-95"
-                                                    >
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
+                                                    <span className="text-xs text-gray-500 w-6">{index + 1}.</span>
+                                                    <span className="font-mono text-sm truncate">{b.barcode}</span>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
                                 )}
-
-                                {/* Not Alanı */}
-                                <input
-                                    type="text"
-                                    placeholder="Not ekle (opsiyonel)"
-                                    value={note}
-                                    onChange={(e) => setNote(e.target.value)}
-                                    className="w-full px-4 py-4 bg-gray-800 border border-gray-700 rounded-xl focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 text-lg"
-                                />
-
-                                {/* Aksiyonlar */}
-                                <div className="flex gap-3 pt-2 pb-6">
-                                    <button
-                                        onClick={() => {
-                                            setIsScanning(false);
-                                            setScannedBarcodes([]);
-                                            setNote("");
-                                            setDuplicateWarning(null);
-                                        }}
-                                        className="flex-1 py-5 bg-gray-700 hover:bg-gray-600 rounded-xl font-semibold text-xl transition active:scale-95"
-                                    >
-                                        İptal
-                                    </button>
-                                    <button
-                                        onClick={handleSave}
-                                        disabled={scannedBarcodes.length === 0 || isSaving}
-                                        className="flex-1 py-5 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-xl font-bold text-xl transition active:scale-95 flex items-center justify-center gap-2"
-                                    >
-                                        {isSaving ? (
-                                            <div className="animate-spin w-7 h-7 border-3 border-white border-t-transparent rounded-full" />
-                                        ) : (
-                                            <>
-                                                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                </svg>
-                                                Kaydet
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </>
-                        )}
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
