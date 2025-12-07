@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
+import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from "@zxing/library";
 
 interface BarcodeScannerProps {
     onScan: (barcode: string) => void;
@@ -22,7 +22,9 @@ export default function BarcodeScanner({
     onError,
     isActive,
 }: BarcodeScannerProps) {
-    const scannerRef = useRef<Html5Qrcode | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+    const streamRef = useRef<MediaStream | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const [cameraError, setCameraError] = useState<string | null>(null);
     const [invalidScan, setInvalidScan] = useState<string | null>(null);
@@ -59,78 +61,96 @@ export default function BarcodeScanner({
 
     useEffect(() => {
         mountedRef.current = true;
-        const scannerId = "barcode-scanner";
 
         const startScanner = async () => {
             try {
-                const scannerElement = document.getElementById(scannerId);
-                if (!scannerElement || !mountedRef.current) {
+                if (!videoRef.current || !mountedRef.current) {
                     return;
                 }
 
-                if (scannerRef.current) {
-                    try {
-                        await scannerRef.current.stop();
-                    } catch {
-                        // ignore
-                    }
+                // Önceki stream'i temizle
+                if (streamRef.current) {
+                    streamRef.current.getTracks().forEach(track => track.stop());
                 }
 
-                // Sadece CODE_128 formatını destekle (Ozon barkodları bu formatta)
-                const html5QrCode = new Html5Qrcode(scannerId, {
-                    formatsToSupport: [
-                        Html5QrcodeSupportedFormats.CODE_128,
-                    ],
-                    verbose: false,
+                // YÜKSEK ÇÖZÜNÜRLÜKLÜ kamera akışı iste
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: "environment",        // Arka kamera
+                        width: { ideal: 1920, min: 1280 }, // Full HD veya HD
+                        height: { ideal: 1080, min: 720 },
+                        // @ts-expect-error - focusMode bazı tarayıcılarda desteklenir
+                        focusMode: "continuous",          // Sürekli odaklama
+                    },
+                    audio: false,
                 });
 
-                scannerRef.current = html5QrCode;
+                streamRef.current = stream;
 
-                // Yüksek çözünürlük + arka kamera ile başlat
-                await html5QrCode.start(
-                    { facingMode: "environment" },
-                    {
-                        fps: 15,
-                        qrbox: { width: 350, height: 120 },
-                        aspectRatio: 1.777778,
-                        disableFlip: false,
-                    },
-                    (decodedText) => {
-                        if (!mountedRef.current) return;
+                // Video elementine bağla
+                videoRef.current.srcObject = stream;
+                await videoRef.current.play();
 
-                        const now = Date.now();
-                        // Aynı barkodu 2 saniye içinde tekrar okuma
-                        if (
-                            decodedText === lastScannedRef.current &&
-                            now - lastScanTimeRef.current < 2000
-                        ) {
-                            return;
+                // ZXing okuyucu oluştur - sadece CODE_128 formatı
+                const hints = new Map();
+                hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128]);
+                hints.set(DecodeHintType.TRY_HARDER, true);
+
+                const reader = new BrowserMultiFormatReader(hints);
+                readerRef.current = reader;
+
+                // Sürekli tarama başlat
+                const decodeFromStream = async () => {
+                    if (!mountedRef.current || !videoRef.current || !readerRef.current) return;
+
+                    try {
+                        const result = await readerRef.current.decodeFromVideoElement(videoRef.current);
+
+                        if (result && mountedRef.current) {
+                            const decodedText = result.getText();
+                            const now = Date.now();
+
+                            // Aynı barkodu 2 saniye içinde tekrar okuma
+                            if (
+                                decodedText === lastScannedRef.current &&
+                                now - lastScanTimeRef.current < 2000
+                            ) {
+                                // Tekrar taramaya devam et
+                                setTimeout(decodeFromStream, 100);
+                                return;
+                            }
+
+                            lastScannedRef.current = decodedText;
+                            lastScanTimeRef.current = now;
+
+                            // Ozon barkod formatını doğrula
+                            if (isValidOzonBarcode(decodedText)) {
+                                setInvalidScan(null);
+                                playBeep(true);
+                                onScan(decodedText);
+                            } else {
+                                // Geçersiz format - uyarı göster
+                                setInvalidScan(decodedText);
+                                playBeep(false);
+                                setTimeout(() => {
+                                    if (mountedRef.current) {
+                                        setInvalidScan(null);
+                                    }
+                                }, 2000);
+                            }
                         }
-
-                        lastScannedRef.current = decodedText;
-                        lastScanTimeRef.current = now;
-
-                        // Ozon barkod formatını doğrula
-                        if (isValidOzonBarcode(decodedText)) {
-                            setInvalidScan(null);
-                            playBeep(true);
-                            onScan(decodedText);
-                        } else {
-                            // Geçersiz format - uyarı göster
-                            setInvalidScan(decodedText);
-                            playBeep(false);
-                            // 2 saniye sonra uyarıyı kaldır
-                            setTimeout(() => {
-                                if (mountedRef.current) {
-                                    setInvalidScan(null);
-                                }
-                            }, 2000);
-                        }
-                    },
-                    () => {
-                        // Tarama devam ediyor
+                    } catch {
+                        // Barkod bulunamadı, taramaya devam et
                     }
-                );
+
+                    // Sürekli tarama için loop
+                    if (mountedRef.current) {
+                        setTimeout(decodeFromStream, 100);
+                    }
+                };
+
+                // Taramayı başlat
+                decodeFromStream();
 
                 if (mountedRef.current) {
                     setIsScanning(true);
@@ -147,16 +167,24 @@ export default function BarcodeScanner({
             }
         };
 
-        const stopScanner = async () => {
-            if (scannerRef.current) {
-                try {
-                    await scannerRef.current.stop();
-                    scannerRef.current.clear();
-                } catch {
-                    // ignore
-                }
-                scannerRef.current = null;
+        const stopScanner = () => {
+            // Stream'i durdur
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
+                streamRef.current = null;
             }
+
+            // Reader'ı temizle
+            if (readerRef.current) {
+                readerRef.current.reset();
+                readerRef.current = null;
+            }
+
+            // Video'yu temizle
+            if (videoRef.current) {
+                videoRef.current.srcObject = null;
+            }
+
             if (mountedRef.current) {
                 setIsScanning(false);
                 setInvalidScan(null);
@@ -189,11 +217,14 @@ export default function BarcodeScanner({
 
     return (
         <div className="relative w-full">
-            {/* Kamera Görünümü */}
-            <div
-                id="barcode-scanner"
-                className="w-full rounded-xl overflow-hidden bg-black"
-                style={{ minHeight: "300px" }}
+            {/* Kamera Görünümü - Native Video Element */}
+            <video
+                ref={videoRef}
+                className="w-full rounded-xl bg-black object-cover"
+                style={{ minHeight: "300px", maxHeight: "400px" }}
+                playsInline
+                muted
+                autoPlay
             />
 
             {/* Geçersiz Barkod Uyarısı */}
@@ -229,7 +260,7 @@ export default function BarcodeScanner({
                 </div>
             )}
 
-            {/* Tarama Çerçevesi - Üst barkod için optimize edilmiş dar alan */}
+            {/* Tarama Çerçevesi */}
             {isScanning && !cameraError && (
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                     <div className="w-80 h-24 border-2 border-green-500/70 rounded-lg relative bg-green-500/5">
@@ -245,8 +276,8 @@ export default function BarcodeScanner({
 
                     {/* Alt bilgi */}
                     <div className="absolute bottom-4 left-0 right-0 text-center">
-                        <p className="text-white/80 text-sm font-medium">Üstteki barkodu çerçeveye hizalayın</p>
-                        <p className="text-white/50 text-xs mt-1">Format: XXXXXXXX-XXXX-X</p>
+                        <p className="text-white/80 text-sm font-medium">Barkodu çerçeveye hizalayın</p>
+                        <p className="text-white/50 text-xs mt-1">HD Kamera • Format: XXXXXXXX-XXXX-X</p>
                     </div>
                 </div>
             )}
