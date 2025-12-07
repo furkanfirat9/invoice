@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Daha önce teslim edilmiş barkodları kontrol et
+        // Daha önce teslim edilmiş barkodları bul
         const existingBarcodes = await prisma.handoverBarcode.findMany({
             where: {
                 barcode: { in: barcodes },
@@ -84,16 +84,21 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        if (existingBarcodes.length > 0) {
-            const duplicates = existingBarcodes.map((b: { barcode: string; handover: { handoverDate: Date } }) => ({
-                barcode: b.barcode,
-                date: b.handover.handoverDate,
-            }));
-            return NextResponse.json(
-                { success: false, error: "Bazı barkodlar daha önce teslim edilmiş", duplicates },
-                { status: 409 }
-            );
-        }
+        // Mükerrer olanların listesi (Log için)
+        const duplicateLogs = existingBarcodes.map((b) => ({
+            barcode: b.barcode,
+            originalHandoverId: b.handoverId,
+            originalDate: b.handover.handoverDate.toISOString(),
+            scannedAt: b.scannedAt.toISOString(),
+        }));
+
+        // Mükerrer olan barkodları ayıkla (Veritabanına tekrar eklememek için)
+        const existingBarcodeSet = new Set(existingBarcodes.map((b) => b.barcode));
+        const uniqueBarcodes = barcodes.filter((barcode) => !existingBarcodeSet.has(barcode));
+
+        // Eğer hiç yeni barkod yoksa ve sadece mükerrer varsa, yine de kayıt oluşturulsun mu?
+        // Evet, kullanıcı not veya görsel eklemiş olabilir. 
+        // Bu yüzden boş da olsa handover kaydı oluşturup duplicateLogs'a yazarız.
 
         // Teslim kaydı oluştur
         const handover = await prisma.courierHandover.create({
@@ -101,8 +106,9 @@ export async function POST(request: NextRequest) {
                 userId: user.id,
                 note: note || null,
                 imageUrl: imageUrl,
+                duplicateLogs: duplicateLogs.length > 0 ? duplicateLogs : undefined,
                 barcodes: {
-                    create: barcodes.map((barcode: string) => ({
+                    create: uniqueBarcodes.map((barcode: string) => ({
                         barcode,
                     })),
                 },
@@ -112,10 +118,19 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        const successMessage = uniqueBarcodes.length > 0
+            ? `${uniqueBarcodes.length} yeni barkod kaydedildi.`
+            : "Yeni barkod yok.";
+
+        const warningMessage = duplicateLogs.length > 0
+            ? ` ${duplicateLogs.length} barkod mükerrer olduğu için loglandı.`
+            : "";
+
         return NextResponse.json({
             success: true,
             handover,
-            message: `${barcodes.length} barkod başarıyla kaydedildi`,
+            message: successMessage + warningMessage,
+            duplicateCount: duplicateLogs.length
         });
     } catch (error) {
         console.error("Mobile handover error:", error);

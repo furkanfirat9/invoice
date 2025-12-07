@@ -85,6 +85,7 @@ model CourierHandover {
   handoverDate  DateTime @default(now())
   note          String?
   imageUrl      String?  // Teslimat görseli (Vercel Blob URL)
+  duplicateLogs Json?    // Mükerrer okunan barkodların bilgisi (Barcode, OriginalID, Date)
   userId        String
   
   barcodes      HandoverBarcode[]

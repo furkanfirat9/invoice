@@ -10,11 +10,19 @@ interface HandoverBarcode {
     scannedAt: string;
 }
 
+interface DuplicateLog {
+    barcode: string;
+    originalHandoverId: string;
+    originalDate: string;
+    scannedAt: string;
+}
+
 interface Handover {
     id: string;
     handoverDate: string;
     note: string | null;
     imageUrl: string | null;
+    duplicateLogs: DuplicateLog[] | null;
     barcodes: HandoverBarcode[];
     createdAt: string;
 }
@@ -261,7 +269,7 @@ export default function KuryeTeslimPage() {
             {/* Modal */}
             {isModalOpen && selectedHandover && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
                         {/* Modal Header */}
                         <div className="flex items-center justify-between p-4 border-b border-gray-200">
                             <h3 className="text-lg font-semibold text-gray-900">
@@ -296,7 +304,7 @@ export default function KuryeTeslimPage() {
                             </div>
                         </div>
 
-                        {/* Table */}
+                        {/* Table Content Scrollable Area */}
                         <div className="flex-1 overflow-auto">
                             <table className="w-full">
                                 <thead className="bg-gray-50 sticky top-0">
@@ -337,10 +345,41 @@ export default function KuryeTeslimPage() {
                             </table>
                         </div>
 
+                        {/* Mükerrer Barkod Uyarısı (Varsa) */}
+                        {selectedHandover.duplicateLogs && Array.isArray(selectedHandover.duplicateLogs) && selectedHandover.duplicateLogs.length > 0 && (
+                            <div className="p-4 bg-yellow-50 border-t border-yellow-200">
+                                <div className="flex items-start space-x-3">
+                                    <div className="flex-shrink-0">
+                                        <svg className="h-5 w-5 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="text-sm font-medium text-yellow-800">
+                                            Daha Önceden Gönderilmiş Barkodlar
+                                        </h4>
+                                        <div className="mt-2 text-sm text-yellow-700">
+                                            <p className="mb-2">Bu teslimata eklenmeyen ancak okutulmuş mükerrer barkodlar:</p>
+                                            <ul className="list-disc list-inside space-y-1 max-h-32 overflow-y-auto bg-yellow-100/50 p-2 rounded">
+                                                {selectedHandover.duplicateLogs.map((log, idx) => (
+                                                    <li key={idx}>
+                                                        <span className="font-mono font-bold mr-2">{log.barcode}</span>
+                                                        <span className="text-yellow-600 text-xs">
+                                                            (İlk gönderim: {formatFullDate(log.originalDate)})
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Modal Footer */}
-                        <div className="p-4 border-t border-gray-200 flex items-center justify-between">
+                        <div className="p-4 border-t border-gray-200 flex items-center justify-between bg-gray-50 rounded-b-lg">
                             <span className="text-sm text-blue-600">
-                                {filteredBarcodes.length} / {selectedHandover.barcodes.length} kayıt gösteriliyor
+                                {filteredBarcodes.length} / {selectedHandover.barcodes.length} yeni kayıt
                             </span>
                             <button
                                 onClick={closeModal}

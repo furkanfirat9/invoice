@@ -2,11 +2,10 @@
   "expo": {
     "name": "Ozon Barkod",
     "slug": "ozon-scanner",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -15,7 +14,8 @@
     "ios": {
       "supportsTablet": false,
       "infoPlist": {
-        "NSCameraUsageDescription": "Barkod taramak için kamera izni gerekli"
+        "NSCameraUsageDescription": "Barkod taramak ve fotoğraf çekmek için kamera izni gerekli",
+        "NSPhotoLibraryUsageDescription": "Fotoğraf seçmek için galeri izni gerekli"
       }
     },
     "android": {
@@ -23,10 +23,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0f172a"
       },
-      "permissions": [
-        "CAMERA",
-        "VIBRATE"
-      ],
       "package": "com.ozon.scanner"
     },
     "plugins": [
@@ -35,7 +31,21 @@
         {
           "cameraPermission": "Barkod taramak için kamera izni gerekli"
         }
-      ]
-    ]
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Fotoğraf seçmek için galeri erişimi gerekli",
+          "cameraPermission": "Teslimat fotoğrafı çekmek için kamera izni gerekli"
+        }
+      ],
+      "expo-asset",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "54795dae-300c-47a1-a4cf-e6ee1ad5f280"
+      }
+    }
   }
 }
