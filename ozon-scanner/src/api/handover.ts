@@ -16,6 +16,7 @@ export interface HandoverResponse {
         id: string;
         barcode: string;
         note?: string;
+        imageUrl?: string;
         createdAt: string;
     };
     error?: string;
@@ -53,31 +54,45 @@ export async function login(
     }
 }
 
-// Barkod kaydet
+// Barkod kaydet (görsel ile)
 export async function saveHandover(
     barcodes: string[],
     note: string,
-    token: string
+    token: string,
+    imageUri?: string
 ): Promise<HandoverResponse> {
     try {
         // Token'dan userId çıkar
         const user = JSON.parse(token);
 
+        // FormData oluştur
+        const formData = new FormData();
+        formData.append("barcodes", JSON.stringify(barcodes));
+        formData.append("note", note || "");
+        formData.append("userId", user.id);
+
+        // Görsel varsa ekle
+        if (imageUri) {
+            const filename = imageUri.split('/').pop() || 'photo.jpg';
+            const match = /\.(\w+)$/.exec(filename);
+            const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+            formData.append("image", {
+                uri: imageUri,
+                name: filename,
+                type: type,
+            } as unknown as Blob);
+        }
+
         const response = await fetch(`${API_BASE_URL}/api/mobile/handover`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                barcodes,
-                note,
-                userId: user.id
-            }),
+            body: formData,
         });
 
         const data = await response.json();
         return data;
     } catch (error) {
+        console.error("Save handover error:", error);
         return {
             success: false,
             error: "Bağlantı hatası",

@@ -9,10 +9,13 @@ import {
     Vibration,
     ScrollView,
     Dimensions,
+    Image,
 } from "react-native";
 import { CameraView, Camera } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { Audio } from "expo-av";
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { saveHandover, type Handover } from "../api/handover";
 
 interface ScannerScreenProps {
@@ -33,6 +36,8 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
     const [note, setNote] = useState("");
     const [isScanning, setIsScanning] = useState(true);
     const [lastScanned, setLastScanned] = useState("");
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
     const lastScanTimeRef = useRef(0);
 
     useEffect(() => {
@@ -69,6 +74,44 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
         } catch (error) {
             Vibration.vibrate([100, 50, 100]);
         }
+    };
+
+    // Fotoğraf çek
+    const takePhoto = async () => {
+        try {
+            // Kamera izni iste
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert("İzin Gerekli", "Fotoğraf çekmek için kamera izni gerekli");
+                return;
+            }
+
+            const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: false,
+                quality: 0.7, // İlk kalite ayarı
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                // Görseli sıkıştır
+                const manipResult = await ImageManipulator.manipulateAsync(
+                    result.assets[0].uri,
+                    [{ resize: { width: 1200 } }], // Max 1200px genişlik
+                    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+                );
+
+                setSelectedImage(manipResult.uri);
+                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
+        } catch (error) {
+            console.error("Photo error:", error);
+            Alert.alert("Hata", "Fotoğraf çekilemedi");
+        }
+    };
+
+    // Fotoğrafı kaldır
+    const removePhoto = () => {
+        setSelectedImage(null);
     };
 
     // Barkod tarandığında
@@ -131,23 +174,32 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
 
         Alert.alert(
             "Kaydet",
-            `${scannedBarcodes.length} barkod kaydedilecek. Onaylıyor musunuz?`,
+            `${scannedBarcodes.length} barkod${selectedImage ? " ve 1 fotoğraf" : ""} kaydedilecek. Onaylıyor musunuz?`,
             [
                 { text: "İptal", style: "cancel" },
                 {
                     text: "Kaydet",
                     onPress: async () => {
+                        setIsUploading(true);
                         // Tüm barkodları tek seferde gönder
                         const barcodeList = scannedBarcodes.map(h => h.barcode);
-                        const response = await saveHandover(barcodeList, note, token);
+                        const response = await saveHandover(
+                            barcodeList,
+                            note,
+                            token,
+                            selectedImage || undefined
+                        );
+
+                        setIsUploading(false);
 
                         if (response.success) {
                             Alert.alert(
                                 "Başarılı",
-                                `${barcodeList.length} barkod kaydedildi`
+                                `${barcodeList.length} barkod${selectedImage ? " ve fotoğraf" : ""} kaydedildi`
                             );
                             setScannedBarcodes([]);
                             setNote("");
+                            setSelectedImage(null);
                         } else {
                             Alert.alert(
                                 "Hata",
@@ -162,8 +214,8 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
 
     // İptal butonu
     const handleCancel = () => {
-        if (scannedBarcodes.length > 0) {
-            Alert.alert("İptal", "Tüm barkodlar silinecek. Emin misiniz?", [
+        if (scannedBarcodes.length > 0 || selectedImage) {
+            Alert.alert("İptal", "Tüm barkodlar ve fotoğraf silinecek. Emin misiniz?", [
                 { text: "Hayır", style: "cancel" },
                 {
                     text: "Evet",
@@ -171,6 +223,7 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
                     onPress: () => {
                         setScannedBarcodes([]);
                         setNote("");
+                        setSelectedImage(null);
                     },
                 },
             ]);
@@ -240,6 +293,23 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
                     </ScrollView>
                 )}
 
+                {/* Fotoğraf Bölümü */}
+                <View style={styles.photoSection}>
+                    {selectedImage ? (
+                        <View style={styles.photoPreviewContainer}>
+                            <Image source={{ uri: selectedImage }} style={styles.photoPreview} />
+                            <TouchableOpacity style={styles.removePhotoBtn} onPress={removePhoto}>
+                                <Text style={styles.removePhotoBtnText}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
+                            <Text style={styles.photoButtonIcon}>📷</Text>
+                            <Text style={styles.photoButtonText}>Fotoğraf Ekle</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
                 {/* Not Alanı */}
                 <TextInput
                     style={styles.noteInput}
@@ -260,10 +330,13 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[styles.button, styles.saveButton]}
+                        style={[styles.button, styles.saveButton, isUploading && styles.disabledButton]}
                         onPress={handleSave}
+                        disabled={isUploading}
                     >
-                        <Text style={styles.buttonText}>✓ Kaydet</Text>
+                        <Text style={styles.buttonText}>
+                            {isUploading ? "Yükleniyor..." : "✓ Kaydet"}
+                        </Text>
                     </TouchableOpacity>
                 </View>
 
@@ -386,6 +459,53 @@ const styles = StyleSheet.create({
         color: "#fff",
         fontSize: 12,
     },
+    photoSection: {
+        marginBottom: 12,
+        alignItems: "center",
+    },
+    photoButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#3b82f6",
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 12,
+        gap: 8,
+    },
+    photoButtonIcon: {
+        fontSize: 20,
+    },
+    photoButtonText: {
+        color: "#fff",
+        fontSize: 16,
+        fontWeight: "600",
+    },
+    photoPreviewContainer: {
+        position: "relative",
+    },
+    photoPreview: {
+        width: 80,
+        height: 80,
+        borderRadius: 12,
+        borderWidth: 2,
+        borderColor: "#22c55e",
+    },
+    removePhotoBtn: {
+        position: "absolute",
+        top: -8,
+        right: -8,
+        backgroundColor: "#ef4444",
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    removePhotoBtnText: {
+        color: "#fff",
+        fontSize: 14,
+        fontWeight: "bold",
+    },
     noteInput: {
         backgroundColor: "#0f172a",
         borderRadius: 12,
@@ -410,6 +530,10 @@ const styles = StyleSheet.create({
     },
     saveButton: {
         backgroundColor: "#22c55e",
+    },
+    disabledButton: {
+        backgroundColor: "#4b5563",
+        opacity: 0.7,
     },
     buttonText: {
         color: "#fff",

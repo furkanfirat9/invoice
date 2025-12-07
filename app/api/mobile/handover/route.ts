@@ -1,11 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { put } from "@vercel/blob";
 
 // POST - Mobil uygulama için teslim kaydı oluştur
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        const { barcodes, note, userId } = body;
+        const contentType = request.headers.get("content-type") || "";
+
+        let barcodes: string[] = [];
+        let note: string | null = null;
+        let userId: string | null = null;
+        let imageUrl: string | null = null;
+
+        // FormData veya JSON kontrolü
+        if (contentType.includes("multipart/form-data")) {
+            const formData = await request.formData();
+
+            const barcodesStr = formData.get("barcodes") as string;
+            barcodes = barcodesStr ? JSON.parse(barcodesStr) : [];
+            note = formData.get("note") as string | null;
+            userId = formData.get("userId") as string | null;
+
+            // Görsel varsa yükle
+            const image = formData.get("image") as File | null;
+            if (image && image.size > 0) {
+                const filename = `courier-handover/${Date.now()}-${image.name}`;
+                const blob = await put(filename, image, {
+                    access: "public",
+                    contentType: image.type,
+                });
+                imageUrl = blob.url;
+            }
+        } else {
+            // JSON formatı (eski uyumluluk için)
+            const body = await request.json();
+            userId = body.userId;
+            note = body.note;
+
+            if (Array.isArray(body.barcodes)) {
+                barcodes = body.barcodes;
+            } else if (typeof body.barcodes === 'string') {
+                barcodes = [body.barcodes];
+            } else if (body.barcode) {
+                barcodes = [body.barcode];
+            }
+        }
 
         // userId kontrolü (mobil uygulamadan gelen user.id)
         if (!userId) {
@@ -27,17 +66,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Barkod kontrolü - tek barkod veya dizi kabul et
-        let barcodeList: string[] = [];
-        if (Array.isArray(barcodes)) {
-            barcodeList = barcodes;
-        } else if (typeof barcodes === 'string') {
-            barcodeList = [barcodes];
-        } else if (body.barcode) {
-            barcodeList = [body.barcode];
-        }
-
-        if (barcodeList.length === 0) {
+        // Barkod listesi zaten yukarıda oluşturuldu
+        if (barcodes.length === 0) {
             return NextResponse.json(
                 { success: false, error: "En az bir barkod gerekli" },
                 { status: 400 }
@@ -47,7 +77,7 @@ export async function POST(request: NextRequest) {
         // Daha önce teslim edilmiş barkodları kontrol et
         const existingBarcodes = await prisma.handoverBarcode.findMany({
             where: {
-                barcode: { in: barcodeList },
+                barcode: { in: barcodes },
             },
             include: {
                 handover: true,
@@ -70,8 +100,9 @@ export async function POST(request: NextRequest) {
             data: {
                 userId: user.id,
                 note: note || null,
+                imageUrl: imageUrl,
                 barcodes: {
-                    create: barcodeList.map((barcode: string) => ({
+                    create: barcodes.map((barcode: string) => ({
                         barcode,
                     })),
                 },
@@ -84,7 +115,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             handover,
-            message: `${barcodeList.length} barkod başarıyla kaydedildi`,
+            message: `${barcodes.length} barkod başarıyla kaydedildi`,
         });
     } catch (error) {
         console.error("Mobile handover error:", error);

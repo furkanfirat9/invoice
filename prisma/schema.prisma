@@ -84,6 +84,7 @@ model CourierHandover {
   id            String   @id @default(cuid())
   handoverDate  DateTime @default(now())
   note          String?
+  imageUrl      String?  // Teslimat görseli (Vercel Blob URL)
   userId        String
   
   barcodes      HandoverBarcode[]

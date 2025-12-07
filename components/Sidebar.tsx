@@ -257,7 +257,7 @@ export default function Sidebar() {
                     />
                   </svg>
                 ),
-                path: "/kurye-teslim",
+                path: "/dashboard/kurye-teslim",
               });
             }
 
