@@ -86,13 +86,35 @@ export default function BarcodeScanner({
 
                 scannerRef.current = html5QrCode;
 
+                // Arka kamerayı bul
+                const devices = await Html5Qrcode.getCameras();
+                let cameraId = devices[0]?.id; // Varsayılan ilk kamera
+
+                // Arka kamerayı ara (back, rear, environment kelimelerini içeren)
+                for (const device of devices) {
+                    const label = device.label.toLowerCase();
+                    if (label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('arka')) {
+                        cameraId = device.id;
+                        break;
+                    }
+                }
+
+                if (!cameraId) {
+                    throw new Error("Kamera bulunamadı");
+                }
+
+                // Yüksek çözünürlük kamera akışı iste
                 await html5QrCode.start(
-                    { facingMode: "environment" },
+                    cameraId,
                     {
-                        fps: 15, // Daha hızlı tarama
-                        qrbox: { width: 350, height: 120 }, // Daha geniş tarama alanı
-                        aspectRatio: 1.777778, // 16:9 oran - daha geniş görüş alanı
+                        fps: 15,
+                        qrbox: { width: 350, height: 120 },
+                        aspectRatio: 1.777778,
                         disableFlip: false,
+                        videoConstraints: {
+                            width: { ideal: 1920, min: 1280 },
+                            height: { ideal: 1080, min: 720 },
+                        }
                     },
                     (decodedText) => {
                         if (!mountedRef.current) return;
