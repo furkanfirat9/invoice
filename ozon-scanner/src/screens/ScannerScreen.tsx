@@ -45,7 +45,18 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
     // Başarılı ses çal
     const playSuccessSound = async () => {
         try {
+            // Haptic feedback
             await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            // Bip sesi çal
+            const { sound } = await Audio.Sound.createAsync(
+                { uri: 'https://www.soundjay.com/buttons/beep-01a.mp3' },
+                { shouldPlay: true, volume: 1.0 }
+            );
+            // 1 saniye sonra sesi temizle
+            setTimeout(() => {
+                sound.unloadAsync();
+            }, 1000);
         } catch (error) {
             Vibration.vibrate(100);
         }
@@ -62,27 +73,34 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
 
     // Barkod tarandığında
     const handleBarcodeScanned = async ({ data }: { data: string }) => {
+        // Tarama devre dışıysa hiçbir şey yapma
+        if (!isScanning) return;
+
+        // Ozon formatını kontrol et - geçersiz formatları sessizce yok say
+        if (!isValidOzonBarcode(data)) {
+            // Hiçbir şey yapma, taramaya devam et
+            return;
+        }
+
         const now = Date.now();
 
-        // Aynı barkodu 3 saniye içinde tekrar tarama
-        if (data === lastScanned && now - lastScanTimeRef.current < 3000) {
+        // Aynı barkodu 5 saniye içinde tekrar tarama
+        if (data === lastScanned && now - lastScanTimeRef.current < 5000) {
             return;
         }
 
+        // Taramayı geçici olarak durdur (sadece geçerli barkodlarda)
+        setIsScanning(false);
         lastScanTimeRef.current = now;
         setLastScanned(data);
-
-        // Ozon formatını kontrol et
-        if (!isValidOzonBarcode(data)) {
-            await playErrorSound();
-            Alert.alert("Geçersiz Barkod", `Format uygun değil: ${data}`);
-            return;
-        }
 
         // Daha önce tarandı mı kontrol et
         if (scannedBarcodes.some((b) => b.barcode === data)) {
             await playErrorSound();
-            Alert.alert("Dikkat", "Bu barkod zaten tarandı!");
+            // Alert yerine kısa süre bekle ve devam et
+            setTimeout(() => {
+                setIsScanning(true);
+            }, 2000);
             return;
         }
 
@@ -97,6 +115,11 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
         };
 
         setScannedBarcodes((prev) => [newHandover, ...prev]);
+
+        // 1.5 saniye sonra taramaya devam et
+        setTimeout(() => {
+            setIsScanning(true);
+        }, 1500);
     };
 
     // Kaydet butonu

@@ -41,10 +41,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Sadece kurye (CARRIER) rolüne izin ver
-        if (user.role !== "CARRIER") {
+        // Sadece satıcı (SELLER) rolüne izin ver
+        if (user.role !== "SELLER") {
             return NextResponse.json(
-                { success: false, error: "Bu uygulama sadece kuryeler için" },
+                { success: false, error: "Bu uygulama sadece satıcılar için" },
                 { status: 403 }
             );
         }
