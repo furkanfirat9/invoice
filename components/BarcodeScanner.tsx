@@ -86,12 +86,22 @@ export default function BarcodeScanner({
 
                 scannerRef.current = html5QrCode;
 
+                // Uzak mesafe okuma için yüksek çözünürlük kamera ayarları
+                const cameraConfig = {
+                    facingMode: "environment",
+                    advanced: [
+                        { width: { ideal: 1920 } },
+                        { height: { ideal: 1080 } },
+                        { focusMode: "continuous" as const }, // Sürekli odaklama
+                    ]
+                };
+
                 await html5QrCode.start(
-                    { facingMode: "environment" },
+                    cameraConfig,
                     {
-                        fps: 10,
-                        qrbox: { width: 280, height: 80 },
-                        aspectRatio: 1.0,
+                        fps: 15, // Daha hızlı tarama
+                        qrbox: { width: 350, height: 120 }, // Daha geniş tarama alanı
+                        aspectRatio: 1.777778, // 16:9 oran - daha geniş görüş alanı
                         disableFlip: false,
                     },
                     (decodedText) => {
@@ -231,7 +241,7 @@ export default function BarcodeScanner({
             {/* Tarama Çerçevesi - Üst barkod için optimize edilmiş dar alan */}
             {isScanning && !cameraError && (
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                    <div className="w-72 h-16 border-2 border-green-500/70 rounded-lg relative bg-green-500/5">
+                    <div className="w-80 h-24 border-2 border-green-500/70 rounded-lg relative bg-green-500/5">
                         {/* Köşe işaretleri */}
                         <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-green-400 rounded-tl-lg" />
                         <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-green-400 rounded-tr-lg" />
