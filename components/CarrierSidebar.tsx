@@ -29,6 +29,25 @@ const menuItems: MenuItem[] = [
     ),
     path: "/carrier",
   },
+  {
+    key: "kuryeTeslim",
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+        />
+      </svg>
+    ),
+    path: "/carrier/kurye-teslim",
+  },
 ];
 
 export default function CarrierSidebar() {
@@ -90,13 +109,13 @@ export default function CarrierSidebar() {
               <li key={item.path}>
                 <button
                   onClick={() => router.push(item.path)}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all whitespace-nowrap ${isActive
                     ? "bg-blue-600 text-white"
                     : "text-gray-300 hover:bg-slate-800 hover:text-white"
                     }`}
                 >
-                  {item.icon}
-                  <span className="font-medium">{t(item.key)}</span>
+                  <span className="flex-shrink-0">{item.icon}</span>
+                  <span className="font-medium flex-1 text-left">{t(item.key)}</span>
                   {isActive && (
                     <svg
                       className="w-4 h-4 ml-auto"

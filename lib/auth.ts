@@ -28,7 +28,6 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (!user) {
-            console.log(`Auth Error: User not found for email: ${email}`);
             throw new Error("Kullanıcı bulunamadı");
           }
 
@@ -39,11 +38,8 @@ export const authOptions: NextAuthOptions = {
           );
 
           if (!isPasswordValid) {
-            console.log(`Auth Error: Invalid password for user: ${email}`);
             throw new Error("Hatalı şifre");
           }
-
-          console.log(`Auth Success: User logged in: ${email} (${user.role})`);
 
           return {
             id: user.id,

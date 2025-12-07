@@ -120,8 +120,8 @@ export default function DashboardPage() {
             const data = await res.json();
             if (data.invoices && Array.isArray(data.invoices)) {
               data.invoices.forEach((inv: any) => {
-                // Sadece invoice var VE pdfUrl var ise VAR olarak işaretle
-                if (inv.pdfUrl) {
+                // Fatura PDF varsa VEYA ETGB PDF varsa kaydet
+                if (inv.pdfUrl || inv.etgbPdfUrl) {
                   invoiceMap.set(inv.postingNumber, inv);
                 }
               });
@@ -728,9 +728,6 @@ export default function DashboardPage() {
                       {t("etgb")}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      {t("etgbDate")}
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                       {t("isCancel")}
                     </th>
                   </tr>
@@ -830,11 +827,27 @@ export default function DashboardPage() {
                           </button>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        -
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        -
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        {(() => {
+                          const postingNum = order.posting_number || order.order_number || "";
+                          const invoice = invoiceRecords.get(postingNum);
+                          const etgbUrl = invoice?.etgbPdfUrl;
+                          if (etgbUrl) {
+                            return (
+                              <button
+                                onClick={() => window.open(etgbUrl, '_blank')}
+                                className="text-blue-600 hover:underline text-xs font-medium flex items-center"
+                              >
+                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                PDF
+                              </button>
+                            );
+                          }
+                          return <span className="text-gray-400">-</span>;
+                        })()}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                         {order.status === "cancelled" ? (

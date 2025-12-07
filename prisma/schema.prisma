@@ -23,6 +23,7 @@ model User {
   storeName     String?
   orderDocuments OrderDocument[]
   courierHandovers CourierHandover[]
+  invoices      Invoice[]
 }
 
 enum UserRole {
@@ -41,6 +42,10 @@ model Invoice {
   currencyType    String   @default("USD")
   gtipCode        String
   pdfUrl          String?  // Vercel Blob URL
+  
+  // Owner - Faturayı oluşturan satıcı
+  userId          String?  // Optional çünkü mevcut kayıtlarda yok
+  user            User?    @relation(fields: [userId], references: [id])
   
   // ETGB Alanları
   etgbPdfUrl      String?

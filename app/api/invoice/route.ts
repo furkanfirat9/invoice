@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { put, del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -15,6 +15,16 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Sadece SELLER rol kontrolü - CARRIER fatura kaydedemez
+    if (session.user.role !== "SELLER") {
+      return NextResponse.json(
+        { error: "Bu işlem için yetkiniz yok" },
+        { status: 403 }
+      );
+    }
+
+    const userId = session.user.id;
 
     const formData = await request.formData();
 
@@ -33,6 +43,54 @@ export async function POST(request: NextRequest) {
         { error: "Eksik alanlar var" },
         { status: 400 }
       );
+    }
+
+    // Mevcut fatura varsa owner kontrolü yap (başka seller'ın kaydını değiştirmesin)
+    const existingInvoiceForOwnerCheck = await prisma.invoice.findUnique({
+      where: { postingNumber },
+      select: { userId: true, pdfUrl: true }
+    });
+
+    if (existingInvoiceForOwnerCheck && existingInvoiceForOwnerCheck.userId && existingInvoiceForOwnerCheck.userId !== userId) {
+      return NextResponse.json(
+        { error: "Bu fatura kaydını düzenleme yetkiniz yok" },
+        { status: 403 }
+      );
+    }
+
+    // Mevcut PDF URL'ini sakla (güncelleme durumunda eskisini silmek için)
+    const oldPdfUrl = existingInvoiceForOwnerCheck?.pdfUrl;
+
+    // Aynı fatura numarasının başka bir sipariş için kullanılıp kullanılmadığını kontrol et
+    try {
+      const existingInvoice = await prisma.invoice.findFirst({
+        where: {
+          invoiceNumber: invoiceNumber,
+          postingNumber: {
+            not: postingNumber // Kendisi hariç
+          }
+        },
+        select: {
+          postingNumber: true
+        }
+      });
+
+      if (existingInvoice) {
+        return NextResponse.json(
+          {
+            error: `Bu fatura numarası (${invoiceNumber}) daha önce ${existingInvoice.postingNumber} numaralı gönderi için kullanılmış. Lütfen farklı bir fatura numarası kullanın.`,
+            code: "DUPLICATE_INVOICE_NUMBER",
+            existingPostingNumber: existingInvoice.postingNumber
+          },
+          { status: 400 }
+        );
+      }
+    } catch (checkError: any) {
+      console.error("Invoice number check error:", checkError);
+      // Veritabanı bağlantı hatası durumunda kontrol atlanır ve kayıt devam eder
+      if (checkError.code !== 'P1001') {
+        throw checkError;
+      }
     }
 
     // Dosya boyutu kontrolü (5MB)
@@ -66,6 +124,17 @@ export async function POST(request: NextRequest) {
       });
       pdfUrl = blob.url;
       console.log("Blob uploaded successfully, URL:", pdfUrl);
+
+      // Eski PDF varsa blob'dan sil (kaynak sızıntısını önle)
+      if (oldPdfUrl && oldPdfUrl !== pdfUrl) {
+        try {
+          await del(oldPdfUrl);
+          console.log("Old PDF deleted from blob:", oldPdfUrl);
+        } catch (deleteError) {
+          // Silme hatası kritik değil, log'la ve devam et
+          console.error("Old PDF deletion failed:", deleteError);
+        }
+      }
     } catch (blobError: any) {
       console.error("Blob upload error:", blobError);
       // Blob yükleme hatası durumunda hata döndür
@@ -101,6 +170,7 @@ export async function POST(request: NextRequest) {
           currencyType,
           gtipCode,
           pdfUrl: pdfUrl || undefined,
+          userId: userId, // Owner olarak kaydet
         },
       });
     } catch (dbError: any) {

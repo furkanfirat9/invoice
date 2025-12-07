@@ -57,6 +57,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sadece CARRIER rol kontrolü - ETGB kargonun işi
+    if (session.user.role !== "CARRIER") {
+      return NextResponse.json(
+        { error: "Bu işlem için yetkiniz yok" },
+        { status: 403 }
+      );
+    }
+
     const formData = await request.formData();
     const postingNumber = formData.get("postingNumber") as string;
     const file = formData.get("file") as File;
@@ -142,6 +150,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         { error: "Oturum açmanız gerekiyor" },
         { status: 401 }
+      );
+    }
+
+    // Sadece CARRIER rol kontrolü - ETGB kargonun işi
+    if (session.user.role !== "CARRIER") {
+      return NextResponse.json(
+        { error: "Bu işlem için yetkiniz yok" },
+        { status: 403 }
       );
     }
 

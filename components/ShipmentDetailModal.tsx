@@ -75,6 +75,9 @@ export default function ShipmentDetailModal({
   const [countrySearch, setCountrySearch] = useState<string>("");
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [duplicateWarning, setDuplicateWarning] = useState<string>("");
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState<boolean>(false);
+  const [duplicatePostingNumber, setDuplicatePostingNumber] = useState<string | null>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const countryDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -102,6 +105,8 @@ export default function ShipmentDetailModal({
   useEffect(() => {
     if (!isOpen) {
       setErrorMessage("");
+      setDuplicateWarning("");
+      setDuplicatePostingNumber(null);
       // Tüm form alanlarını da temizle
       setInvoiceNumber("");
       setAmount("0");
@@ -115,6 +120,8 @@ export default function ShipmentDetailModal({
     } else {
       // Modal açıldığında hata mesajını temizle
       setErrorMessage("");
+      setDuplicateWarning("");
+      setDuplicatePostingNumber(null);
 
       // Veritabanından verileri yükle
       if (order) {
@@ -156,6 +163,47 @@ export default function ShipmentDetailModal({
       }
     }
   }, [isOpen, order]);
+
+  // Fatura numarası değiştiğinde duplicate kontrolü yap
+  const checkInvoiceDuplicate = useCallback(async (invoiceNum: string) => {
+    if (!invoiceNum.trim()) {
+      setDuplicateWarning("");
+      setDuplicatePostingNumber(null);
+      return;
+    }
+
+    const postingNumber = order?.posting_number || order?.order_number;
+    if (!postingNumber) return;
+
+    setIsCheckingDuplicate(true);
+    try {
+      const response = await fetch(
+        `/api/invoice/check-duplicate?invoiceNumber=${encodeURIComponent(invoiceNum)}&postingNumber=${encodeURIComponent(postingNumber)}`
+      );
+      const data = await response.json();
+
+      if (data.isDuplicate) {
+        setDuplicateWarning(data.message);
+        setDuplicatePostingNumber(data.existingPostingNumber);
+      } else {
+        setDuplicateWarning("");
+        setDuplicatePostingNumber(null);
+      }
+    } catch (error) {
+      console.error("Duplicate check error:", error);
+      setDuplicateWarning("");
+      setDuplicatePostingNumber(null);
+    } finally {
+      setIsCheckingDuplicate(false);
+    }
+  }, [order]);
+
+  // Fatura numarası input'tan çıkıldığında kontrol et
+  const handleInvoiceNumberBlur = useCallback(() => {
+    if (invoiceNumber.trim()) {
+      checkInvoiceDuplicate(invoiceNumber);
+    }
+  }, [invoiceNumber, checkInvoiceDuplicate]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -353,14 +401,45 @@ export default function ShipmentDetailModal({
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       {t("invoiceNumberLabel")} <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      value={invoiceNumber}
-                      onChange={(e) => setInvoiceNumber(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
-                      placeholder={t("invoiceNumberLabel")}
-                      disabled={readOnly}
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={invoiceNumber}
+                        onChange={(e) => {
+                          setInvoiceNumber(e.target.value);
+                          // Değer değiştiğinde uyarıyı temizle
+                          if (duplicateWarning) {
+                            setDuplicateWarning("");
+                            setDuplicatePostingNumber(null);
+                          }
+                        }}
+                        onBlur={handleInvoiceNumberBlur}
+                        className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500 ${duplicateWarning
+                          ? "border-orange-400 focus:ring-orange-500"
+                          : "border-gray-300 focus:ring-blue-500"
+                          }`}
+                        placeholder={t("invoiceNumberLabel")}
+                        disabled={readOnly}
+                      />
+                      {isCheckingDuplicate && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <svg className="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    {duplicateWarning && (
+                      <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-md">
+                        <div className="flex items-start">
+                          <svg className="w-4 h-4 text-orange-600 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          <p className="text-xs text-orange-800">{duplicateWarning}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Amount */}
@@ -859,6 +938,18 @@ export default function ShipmentDetailModal({
                     if (!invoiceNumber.trim()) {
                       errors.push("Fatura Numarası");
                     }
+
+                    // Duplicate fatura numarası kontrolü
+                    if (duplicateWarning && duplicatePostingNumber) {
+                      setErrorMessage(`Bu fatura numarası (${invoiceNumber}) daha önce ${duplicatePostingNumber} numaralı gönderi için kullanılmış. Lütfen farklı bir fatura numarası kullanın.`);
+                      // Scroll to top to show error message
+                      const contentDiv = document.querySelector('.overflow-y-auto');
+                      if (contentDiv) {
+                        contentDiv.scrollTop = 0;
+                      }
+                      return;
+                    }
+
                     if (!amount || amount === "0" || parseFloat(amount) <= 0) {
                       errors.push("Tutar");
                     }
