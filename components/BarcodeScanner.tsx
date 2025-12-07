@@ -256,8 +256,12 @@ export default function BarcodeScanner({
             {/* Kamera Görünümü - Native Video Element */}
             <video
                 ref={videoRef}
-                className="w-full rounded-xl bg-black object-cover"
-                style={{ minHeight: "300px", maxHeight: "400px" }}
+                className="w-full rounded-xl bg-black"
+                style={{
+                    minHeight: "50vh",  // Ekranın yarısı
+                    maxHeight: "70vh",  // Ekranın %70'i
+                    objectFit: "cover",
+                }}
                 playsInline
                 muted
                 autoPlay
