@@ -86,18 +86,8 @@ export default function BarcodeScanner({
 
                 scannerRef.current = html5QrCode;
 
-                // Uzak mesafe okuma için yüksek çözünürlük kamera ayarları
-                const cameraConfig = {
-                    facingMode: "environment",
-                    advanced: [
-                        { width: { ideal: 1920 } },
-                        { height: { ideal: 1080 } },
-                        { focusMode: "continuous" as const }, // Sürekli odaklama
-                    ]
-                };
-
                 await html5QrCode.start(
-                    cameraConfig,
+                    { facingMode: "environment" },
                     {
                         fps: 15, // Daha hızlı tarama
                         qrbox: { width: 350, height: 120 }, // Daha geniş tarama alanı
