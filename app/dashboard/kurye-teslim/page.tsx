@@ -93,6 +93,40 @@ export default function KuryeTeslimPage() {
         }
     };
 
+    // Tek barkod sil
+    const handleDeleteBarcode = async (barcodeId: string, barcodeValue: string) => {
+        if (!confirm(`"${barcodeValue}" barkodunu silmek istediğinize emin misiniz?`)) return;
+
+        try {
+            const res = await fetch(`/api/courier-handover/barcode/${barcodeId}`, {
+                method: "DELETE",
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+
+                if (data.handoverDeleted) {
+                    // Teslim kaydı tamamen silindi (son barkoddu)
+                    closeModal();
+                    loadHandovers();
+                } else {
+                    // Sadece barkod silindi, modal'ı güncelle
+                    setSelectedHandover(prev => {
+                        if (!prev) return null;
+                        return {
+                            ...prev,
+                            barcodes: prev.barcodes.filter(b => b.id !== barcodeId)
+                        };
+                    });
+                    // Ana listeyi de güncelle
+                    loadHandovers();
+                }
+            }
+        } catch (error) {
+            console.error("Barkod silme hatası:", error);
+        }
+    };
+
     // Tarih formatla
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -318,11 +352,14 @@ export default function KuryeTeslimPage() {
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                             TARAMA TARİHİ
                                         </th>
+                                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-16">
+                                            SİL
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredBarcodes.map((barcode, index) => (
-                                        <tr key={barcode.id} className="hover:bg-gray-50">
+                                        <tr key={barcode.id} className="hover:bg-gray-50 group">
                                             <td className="px-4 py-3 text-sm text-gray-500">
                                                 {index + 1}
                                             </td>
@@ -332,11 +369,22 @@ export default function KuryeTeslimPage() {
                                             <td className="px-4 py-3 text-sm text-gray-500">
                                                 {formatFullDate(barcode.scannedAt)}
                                             </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <button
+                                                    onClick={() => handleDeleteBarcode(barcode.id, barcode.barcode)}
+                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                                    title="Barkodu Sil"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                     {filteredBarcodes.length === 0 && (
                                         <tr>
-                                            <td colSpan={3} className="px-4 py-8 text-center text-gray-500">
+                                            <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
                                                 Sonuç bulunamadı
                                             </td>
                                         </tr>
