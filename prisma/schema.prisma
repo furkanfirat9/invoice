@@ -114,3 +114,37 @@ model HandoverBarcode {
   
   @@unique([barcode, handoverId])
 }
+
+// İptal Takip Durumları
+enum CancellationStatus {
+  PENDING_NOTIFICATION  // Satıcı henüz kargoya bildirmedi
+  PENDING_WAREHOUSE     // Kargoya bildirildi, depo bekleniyor
+  IN_WAREHOUSE          // Kargo depoda olduğunu onayladı
+}
+
+// İptal Ürün Takibi
+model CancellationTracking {
+  id              String   @id @default(cuid())
+  postingNumber   String   @unique  // Ozon sipariş numarası
+  
+  // İlişkili kullanıcılar
+  sellerId        String   // Satıcı
+  
+  // Ürün bilgileri (cache)
+  productName     String?
+  productImage    String?
+  sku             String?
+  quantity        Int      @default(1)
+  cancelDate      DateTime?
+  cancelReason    String?
+  
+  // Durum takibi
+  status          CancellationStatus @default(PENDING_NOTIFICATION)
+  
+  // Zaman damgaları
+  notifiedAt      DateTime?  // Kargoya bildirildiği zaman
+  confirmedAt     DateTime?  // Kargo tarafından onaylandığı zaman
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

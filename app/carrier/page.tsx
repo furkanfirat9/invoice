@@ -270,6 +270,20 @@ export default function CarrierPage() {
     setCurrentPage(1);
   };
 
+  // Kopyalama state'i
+  const [copiedValue, setCopiedValue] = useState<string | null>(null);
+
+  // Panoya kopyalama fonksiyonu
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedValue(text);
+      setTimeout(() => setCopiedValue(null), 1500); // 1.5 saniye sonra sıfırla
+    } catch (err) {
+      console.error("Kopyalama hatası:", err);
+    }
+  };
+
   // ETGB Dosya Seçme Tetikleyici
   const handleEtgbUploadClick = (postingNumber: string) => {
     setSelectedPostingForUpload(postingNumber);
@@ -602,8 +616,33 @@ export default function CarrierPage() {
                   return (
                     <tr key={postingNumber} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-900">{startIndex + index + 1}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{order.tracking_number || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{postingNumber}</td>
+                      {/* Takip No - Kopyalanabilir */}
+                      <td className="px-4 py-3 text-sm">
+                        {order.tracking_number ? (
+                          <div className="group inline-flex items-center gap-1">
+                            <span className="text-gray-900 font-mono">{order.tracking_number}</span>
+                            <button
+                              onClick={() => copyToClipboard(order.tracking_number!)}
+                              className={`p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all ${copiedValue === order.tracking_number ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                              title={t("copyToClipboard")}
+                            >
+                              {copiedValue === order.tracking_number ? (
+                                <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      {/* Gönderi No */}
+                      <td className="px-4 py-3 text-sm text-gray-900 font-mono">{postingNumber}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">{order.customer?.name || order.analytics_data?.city || "-"}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">{formatDate(order.in_process_at)}</td>
 
@@ -649,14 +688,14 @@ export default function CarrierPage() {
                           <div className="flex items-center space-x-2">
                             <button
                               onClick={() => window.open(etgbUrl, '_blank')}
-                              className="text-blue-600 hover:underline text-xs font-medium flex items-center"
+                              className="text-blue-600 hover:underline text-xs font-medium flex items-center cursor-pointer"
                             >
                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                               {t("pdf")}
                             </button>
                             <button
                               onClick={() => handleEtgbDelete(postingNumber)}
-                              className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
+                              className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors cursor-pointer"
                               title={t("deleteDocument")}
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -667,7 +706,7 @@ export default function CarrierPage() {
                         ) : (
                           <button
                             onClick={() => handleEtgbUploadClick(postingNumber)}
-                            className="px-3 py-1 border border-blue-600 text-blue-600 rounded text-xs font-medium hover:bg-blue-50 transition-colors flex items-center"
+                            className="px-3 py-1 border border-blue-600 text-blue-600 rounded text-xs font-medium hover:bg-blue-50 transition-colors flex items-center cursor-pointer"
                           >
                             <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                             {t("upload")}

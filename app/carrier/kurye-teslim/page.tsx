@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { exportToExcel, exportToCSV } from "@/lib/exportUtils";
 
 interface HandoverBarcode {
     id: string;
@@ -34,6 +35,7 @@ export default function CarrierKuryeTeslimPage() {
     // State
     const [handovers, setHandovers] = useState<Handover[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -41,7 +43,8 @@ export default function CarrierKuryeTeslimPage() {
     const [searchTerm, setSearchTerm] = useState("");
 
     // Teslimatları yükle
-    const loadHandovers = useCallback(async () => {
+    const loadHandovers = useCallback(async (isRefresh = false) => {
+        if (isRefresh) setIsRefreshing(true);
         try {
             const res = await fetch("/api/carrier/handovers");
             if (res.ok) {
@@ -52,6 +55,7 @@ export default function CarrierKuryeTeslimPage() {
             console.error("Veri yüklenirken hata:", error);
         } finally {
             setIsLoading(false);
+            setIsRefreshing(false);
         }
     }, []);
 
@@ -105,6 +109,33 @@ export default function CarrierKuryeTeslimPage() {
         b.barcode.toLowerCase().includes(searchTerm.toLowerCase())
     ) || [];
 
+    // CSV olarak dışa aktar
+    const exportBarcodesToCSV = () => {
+        if (!selectedHandover) return;
+
+        const barcodes = filteredBarcodes.length > 0 ? filteredBarcodes : selectedHandover.barcodes;
+        const data = barcodes.map((b, i) => ({
+            "#": i + 1,
+            [t("barcode")]: b.barcode,
+            [t("scanDate")]: formatFullDate(b.scannedAt)
+        }));
+
+        exportToCSV(data, `barkodlar_${formatDate(selectedHandover.handoverDate)}`);
+    };
+
+    // Excel olarak dışa aktar
+    const exportBarcodesToExcel = () => {
+        if (!selectedHandover) return;
+
+        const barcodes = filteredBarcodes.length > 0 ? filteredBarcodes : selectedHandover.barcodes;
+        const data = barcodes.map((b, i) => ({
+            "#": i + 1,
+            [t("barcode")]: b.barcode,
+            [t("scanDate")]: formatFullDate(b.scannedAt)
+        }));
+
+        exportToExcel(data, `barkodlar_${formatDate(selectedHandover.handoverDate)}`);
+    };
     // Loading durumu
     if (status === "loading" || isLoading) {
         return (
@@ -145,10 +176,11 @@ export default function CarrierKuryeTeslimPage() {
                 <div className="p-4 border-b border-gray-200 flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-gray-900">{t("handoverList")}</h2>
                     <button
-                        onClick={loadHandovers}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center space-x-2"
+                        onClick={() => loadHandovers(true)}
+                        disabled={isRefreshing}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center space-x-2 disabled:opacity-50"
                     >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                         <span>{t("refresh")}</span>
@@ -200,7 +232,7 @@ export default function CarrierKuryeTeslimPage() {
                                         <td className="px-4 py-3 whitespace-nowrap">
                                             <button
                                                 onClick={() => openModal(handover)}
-                                                className="inline-flex items-center justify-center min-w-[40px] px-3 py-1 bg-teal-500 text-white rounded text-sm font-medium hover:bg-teal-600 transition-colors"
+                                                className="inline-flex items-center justify-center min-w-[40px] px-3 py-1 bg-teal-500 text-white rounded text-sm font-medium hover:bg-teal-600 transition-colors cursor-pointer"
                                             >
                                                 {handover.barcodes.length}
                                             </button>
@@ -214,7 +246,7 @@ export default function CarrierKuryeTeslimPage() {
                                                     href={handover.imageUrl}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center px-3 py-1 bg-indigo-500 text-white rounded text-sm font-medium hover:bg-indigo-600 transition-colors"
+                                                    className="inline-flex items-center px-3 py-1 bg-indigo-500 text-white rounded text-sm font-medium hover:bg-indigo-600 transition-colors cursor-pointer"
                                                 >
                                                     <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -246,7 +278,7 @@ export default function CarrierKuryeTeslimPage() {
                                 onClick={closeModal}
                                 className="text-gray-400 hover:text-gray-600 transition-colors"
                             >
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
@@ -264,7 +296,27 @@ export default function CarrierKuryeTeslimPage() {
                                     placeholder={t("searchBarcode")}
                                 />
                             </div>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={exportBarcodesToExcel}
+                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs text-green-700 bg-green-50 hover:bg-green-100 rounded transition-colors"
+                                    title="Excel"
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    Excel
+                                </button>
+                                <button
+                                    onClick={exportBarcodesToCSV}
+                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 rounded transition-colors"
+                                    title="CSV"
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    CSV
+                                </button>
                                 <span className="text-sm text-gray-500">
                                     {t("totalBarcodes")}: <strong>{selectedHandover.barcodes.length}</strong> {t("barcode")}
                                 </span>
@@ -350,7 +402,7 @@ export default function CarrierKuryeTeslimPage() {
                             </span>
                             <button
                                 onClick={closeModal}
-                                className="px-6 py-2 bg-teal-500 text-white rounded hover:bg-teal-600 transition-colors font-medium flex items-center space-x-2"
+                                className="px-4 py-1.5 bg-teal-500 text-white rounded hover:bg-teal-600 transition-colors text-sm font-medium flex items-center space-x-1.5"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

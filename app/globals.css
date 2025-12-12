@@ -1,2 +1,21 @@
 @import "tailwindcss";
 
+/* Global cursor-pointer for all clickable elements */
+button,
+[role="button"],
+a[href],
+input[type="submit"],
+input[type="button"],
+input[type="reset"],
+select,
+summary {
+  cursor: pointer;
+}
+
+/* Disabled elements should show not-allowed cursor */
+button:disabled,
+input:disabled,
+select:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
