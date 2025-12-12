@@ -4,6 +4,7 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
+    Pressable,
     StyleSheet,
     Alert,
     Vibration,
@@ -16,7 +17,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { Audio } from "expo-av";
 import * as ImageManipulator from "expo-image-manipulator";
-import { saveHandover, type Handover } from "../api/handover";
+import { saveHandover, type Handover, getPendingBarcodes } from "../api/handover";
 
 interface ScannerScreenProps {
     token: string;
@@ -36,7 +37,7 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
     const soundRef = useRef<Audio.Sound | null>(null);
 
     // State
-    const [scannedBarcodes, setScannedBarcodes] = useState<Handover[]>([]);
+    const [scannedBarcodes, setScannedBarcodes] = useState<(Handover & { isNotInPendingList?: boolean })[]>([]);
     const [note, setNote] = useState("");
     const [isScanning, setIsScanning] = useState(true);
     const [lastScanned, setLastScanned] = useState("");
@@ -44,6 +45,10 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
     const [isUploading, setIsUploading] = useState(false);
     const [isTakingPhoto, setIsTakingPhoto] = useState(false);
     const [cameraReady, setCameraReady] = useState(false);
+
+    // Bekleyen siparişler listesi
+    const [pendingBarcodes, setPendingBarcodes] = useState<Set<string>>(new Set());
+    const [isLoadingPending, setIsLoadingPending] = useState(true);
 
     const lastScanTimeRef = useRef(0);
 
@@ -99,6 +104,27 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
         };
     }, [permission]);
 
+    // Bekleyen siparişleri yükle
+    useEffect(() => {
+        const loadPendingBarcodes = async () => {
+            setIsLoadingPending(true);
+            try {
+                const response = await getPendingBarcodes(token);
+                if (response.success) {
+                    setPendingBarcodes(new Set(response.barcodes));
+                    console.log(`${response.count} bekleyen sipariş yüklendi`);
+                } else {
+                    console.error("Bekleyen siparişler yüklenemedi:", response.error);
+                }
+            } catch (error) {
+                console.error("Bekleyen siparişler hatası:", error);
+            } finally {
+                setIsLoadingPending(false);
+            }
+        };
+
+        loadPendingBarcodes();
+    }, [token]);
 
     // Fotoğraf Çek (CameraView üzerinden)
     const takePhoto = async () => {
@@ -163,12 +189,22 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
             return;
         }
 
-        await playSuccessSound();
+        // Bekleyen listede olup olmadığını kontrol et
+        const isNotInPendingList = !pendingBarcodes.has(data);
 
-        const newHandover: Handover = {
+        if (isNotInPendingList) {
+            // Listede değilse uyarı sesi çal
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Vibration.vibrate([100, 100, 100]);
+        } else {
+            await playSuccessSound();
+        }
+
+        const newHandover: Handover & { isNotInPendingList?: boolean } = {
             id: Date.now().toString(),
             barcode: data,
             createdAt: new Date().toISOString(),
+            isNotInPendingList,
         };
 
         setScannedBarcodes((prev) => [newHandover, ...prev]);
@@ -233,6 +269,27 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
         }
     };
 
+    // Tek barkod silme
+    const handleDeleteBarcode = async (item: Handover) => {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        Alert.alert(
+            "Barkodu Sil",
+            `"${item.barcode}" barkodunu silmek istiyor musunuz?`,
+            [
+                { text: "İptal", style: "cancel" },
+                {
+                    text: "Sil",
+                    style: "destructive",
+                    onPress: () => {
+                        setScannedBarcodes((prev) => prev.filter((b) => b.id !== item.id));
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    },
+                },
+            ]
+        );
+    };
+
     if (!permission) {
         return <View style={styles.container} />;
     }
@@ -282,6 +339,23 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
                     <Text style={styles.counterLabel}>barkod</Text>
                 </View>
 
+                {/* Bekleyen sipariş durumu */}
+                <View style={styles.pendingStatus}>
+                    {isLoadingPending ? (
+                        <Text style={styles.pendingStatusText}>
+                            ⏳ Bekleyen siparişler yükleniyor...
+                        </Text>
+                    ) : pendingBarcodes.size > 0 ? (
+                        <Text style={styles.pendingStatusText}>
+                            ✅ {pendingBarcodes.size} bekleyen sipariş listelendi
+                        </Text>
+                    ) : (
+                        <Text style={[styles.pendingStatusText, styles.pendingStatusWarning]}>
+                            ⚠️ Bekleyen sipariş listesi yüklenemedi
+                        </Text>
+                    )}
+                </View>
+
                 {/* Fotoğraf Kontrolü */}
                 <View style={styles.photoSection}>
                     {selectedImage ? (
@@ -312,9 +386,24 @@ export default function ScannerScreen({ token, onLogout }: ScannerScreenProps) {
                 {scannedBarcodes.length > 0 && (
                     <ScrollView style={styles.barcodeList} horizontal>
                         {scannedBarcodes.map((item) => (
-                            <View key={item.id} style={styles.barcodeItem}>
-                                <Text style={styles.barcodeText}>{item.barcode}</Text>
-                            </View>
+                            <Pressable
+                                key={item.id}
+                                style={({ pressed }) => [
+                                    styles.barcodeItem,
+                                    item.isNotInPendingList && styles.barcodeItemWarning,
+                                    pressed && styles.barcodeItemPressed
+                                ]}
+                                onLongPress={() => handleDeleteBarcode(item)}
+                                delayLongPress={500}
+                            >
+                                {item.isNotInPendingList && (
+                                    <Text style={styles.warningIcon}>⚠️</Text>
+                                )}
+                                <Text style={[
+                                    styles.barcodeText,
+                                    item.isNotInPendingList && styles.barcodeTextWarning
+                                ]}>{item.barcode}</Text>
+                            </Pressable>
                         ))}
                     </ScrollView>
                 )}
@@ -362,9 +451,16 @@ const styles = StyleSheet.create({
     counter: { flexDirection: "row", alignItems: "baseline", justifyContent: "center", marginBottom: 12 },
     counterNumber: { fontSize: 48, fontWeight: "bold", color: "#22c55e", marginRight: 8 },
     counterLabel: { fontSize: 18, color: "#94a3b8" },
+    pendingStatus: { alignItems: "center", marginBottom: 8 },
+    pendingStatusText: { color: "#64748b", fontSize: 12 },
+    pendingStatusWarning: { color: "#f97316" },
     barcodeList: { maxHeight: 50, marginBottom: 12 },
-    barcodeItem: { backgroundColor: "#334155", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginRight: 8 },
+    barcodeItem: { backgroundColor: "#334155", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginRight: 8, flexDirection: "row", alignItems: "center" },
+    barcodeItemPressed: { backgroundColor: "#ef4444", transform: [{ scale: 0.95 }] },
+    barcodeItemWarning: { backgroundColor: "#f97316", borderWidth: 2, borderColor: "#fbbf24" },
     barcodeText: { color: "#fff", fontSize: 12 },
+    barcodeTextWarning: { color: "#fef3c7", fontWeight: "bold" },
+    warningIcon: { fontSize: 12, marginRight: 4 },
     photoSection: { marginBottom: 12, alignItems: "center" },
     photoButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#3b82f6", paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, gap: 8, minWidth: 150, justifyContent: "center" },
     photoButtonIcon: { fontSize: 20 },

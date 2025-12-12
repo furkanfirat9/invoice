@@ -116,3 +116,50 @@ export async function getHandovers(token: string): Promise<Handover[]> {
         return [];
     }
 }
+
+// Bekleyen siparişlerin barkod listesini al
+export interface PendingBarcodesResponse {
+    success: boolean;
+    barcodes: string[];
+    count: number;
+    error?: string;
+}
+
+export async function getPendingBarcodes(token: string): Promise<PendingBarcodesResponse> {
+    try {
+        // Token'dan userId çıkar
+        const user = JSON.parse(token);
+
+        const response = await fetch(`${API_BASE_URL}/api/mobile/pending-postings?userId=${user.id}`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+            },
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            return {
+                success: true,
+                barcodes: data.barcodes || [],
+                count: data.count || 0,
+            };
+        } else {
+            return {
+                success: false,
+                barcodes: [],
+                count: 0,
+                error: data.error,
+            };
+        }
+    } catch (error) {
+        console.error("Get pending barcodes error:", error);
+        return {
+            success: false,
+            barcodes: [],
+            count: 0,
+            error: "Bağlantı hatası",
+        };
+    }
+}
