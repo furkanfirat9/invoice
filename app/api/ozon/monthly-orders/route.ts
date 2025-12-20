@@ -34,10 +34,20 @@ interface OzonPosting {
     };
 }
 
-// Helper function to get month date range
+// Helper function to get month date range in Turkey timezone (GMT+3)
+// This ensures orders are grouped by Turkish local date, not UTC
 function getMonthDateRange(year: number, month: number): { start: Date; end: Date } {
-    const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
-    const end = new Date(year, month, 0, 23, 59, 59, 999);
+    // Turkey is GMT+3, so we need to subtract 3 hours from UTC to get Turkish midnight
+    // When it's 00:00 in Turkey, it's 21:00 (previous day) in UTC
+    const TURKEY_OFFSET_HOURS = 3;
+
+    // Start of month: 1st day at 00:00:00 Turkey time = previous day 21:00:00 UTC
+    const start = new Date(Date.UTC(year, month - 1, 1, 0 - TURKEY_OFFSET_HOURS, 0, 0, 0));
+
+    // End of month: last day at 23:59:59.999 Turkey time = same day 20:59:59.999 UTC
+    const lastDayOfMonth = new Date(year, month, 0).getDate(); // Get last day of the month
+    const end = new Date(Date.UTC(year, month - 1, lastDayOfMonth, 23 - TURKEY_OFFSET_HOURS, 59, 59, 999));
+
     return { start, end };
 }
 
@@ -198,9 +208,50 @@ export async function GET(request: NextRequest) {
             paginatedPostings = filteredPostings.slice(startIndex, endIndex);
         }
 
+        // Get document status for all orders
+        const postingNumbers = allPostings.map(p => p.posting_number);
+
+        // Fetch OrderDocument records
+        const orderDocuments = await prisma.orderDocument.findMany({
+            where: { postingNumber: { in: postingNumbers } },
+            select: {
+                postingNumber: true,
+                alisPdfUrl: true,
+                satisPdfUrl: true,
+                etgbPdfUrl: true,
+            },
+        });
+
+        // Fetch Invoice records (for Sevkiyatlar data)
+        const invoices = await prisma.invoice.findMany({
+            where: { postingNumber: { in: postingNumbers } },
+            select: {
+                postingNumber: true,
+                pdfUrl: true,
+                etgbPdfUrl: true,
+            },
+        });
+
+        // Create lookup maps
+        const docMap = new Map(orderDocuments.map(d => [d.postingNumber, d]));
+        const invMap = new Map(invoices.map(i => [i.postingNumber, i]));
+
+        // Build document status map
+        const documentStatus: Record<string, { alis: boolean; satis: boolean; etgb: boolean }> = {};
+        for (const posting of allPostings) {
+            const doc = docMap.get(posting.posting_number);
+            const inv = invMap.get(posting.posting_number);
+            documentStatus[posting.posting_number] = {
+                alis: !!doc?.alisPdfUrl,
+                satis: !!(doc?.satisPdfUrl || inv?.pdfUrl),
+                etgb: !!(doc?.etgbPdfUrl || inv?.etgbPdfUrl),
+            };
+        }
+
         return NextResponse.json({
             orders: paginatedPostings,
             allOrders: returnAll ? allPostings : undefined, // Include all unfiltered orders for caching
+            documentStatus, // Add document status
             stats: {
                 totalOrders,
                 cancelledOrders,
