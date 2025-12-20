@@ -20,6 +20,38 @@ async function uploadPdfToBlob(file: File, folder: string, postingNumber: string
     return blob.url;
 }
 
+// Parse decimal numbers - handles both European and American formats
+// European: 2.915,83 (dot = thousand sep, comma = decimal sep)
+// American: 2,915.83 (comma = thousand sep, dot = decimal sep)
+function parseDecimal(value: string): number {
+    if (!value) return 0;
+
+    const hasDot = value.includes(".");
+    const hasComma = value.includes(",");
+
+    if (hasDot && hasComma) {
+        // Both separators present - determine which is decimal
+        const lastDot = value.lastIndexOf(".");
+        const lastComma = value.lastIndexOf(",");
+
+        if (lastComma > lastDot) {
+            // European format: 2.915,83 → comma is decimal separator
+            // Remove dots (thousand separators) and replace comma with dot
+            return parseFloat(value.replace(/\./g, "").replace(",", "."));
+        } else {
+            // American format: 2,915.83 → dot is decimal separator
+            // Remove commas (thousand separators)
+            return parseFloat(value.replace(/,/g, ""));
+        }
+    } else if (hasComma) {
+        // Only comma - treat as decimal separator (e.g., 1250,50)
+        return parseFloat(value.replace(",", "."));
+    } else {
+        // Only dot or no separator - standard format
+        return parseFloat(value);
+    }
+}
+
 // Save or update order document
 export async function POST(request: NextRequest) {
     try {
@@ -43,12 +75,40 @@ export async function POST(request: NextRequest) {
         // Prepare update data
         const updateData: any = {};
 
-        // Alış fields
+        // Alış Faturası fields
         const alisFaturaNo = formData.get("alisFaturaNo") as string;
+        const alisFaturaTarihi = formData.get("alisFaturaTarihi") as string;
+        const alisSaticiUnvani = formData.get("alisSaticiUnvani") as string;
+        const alisSaticiVkn = formData.get("alisSaticiVkn") as string;
+        const alisKdvHaricTutar = formData.get("alisKdvHaricTutar") as string;
+        const alisKdvTutari = formData.get("alisKdvTutari") as string;
+        const alisUrunBilgisi = formData.get("alisUrunBilgisi") as string;
+        const alisUrunAdedi = formData.get("alisUrunAdedi") as string;
         const alisPdf = formData.get("alisPdf") as File | null;
 
         if (alisFaturaNo) {
             updateData.alisFaturaNo = alisFaturaNo;
+        }
+        if (alisFaturaTarihi) {
+            updateData.alisFaturaTarihi = new Date(alisFaturaTarihi);
+        }
+        if (alisSaticiUnvani) {
+            updateData.alisSaticiUnvani = alisSaticiUnvani;
+        }
+        if (alisSaticiVkn) {
+            updateData.alisSaticiVkn = alisSaticiVkn;
+        }
+        if (alisKdvHaricTutar) {
+            updateData.alisKdvHaricTutar = parseDecimal(alisKdvHaricTutar);
+        }
+        if (alisKdvTutari) {
+            updateData.alisKdvTutari = parseDecimal(alisKdvTutari);
+        }
+        if (alisUrunBilgisi) {
+            updateData.alisUrunBilgisi = alisUrunBilgisi;
+        }
+        if (alisUrunAdedi) {
+            updateData.alisUrunAdedi = alisUrunAdedi;
         }
         if (alisPdf && alisPdf.size > 0) {
             if (alisPdf.type !== "application/pdf") {
@@ -89,16 +149,24 @@ export async function POST(request: NextRequest) {
         const etgbNo = formData.get("etgbNo") as string;
         const etgbTutar = formData.get("etgbTutar") as string;
         const etgbDovizCinsi = formData.get("etgbDovizCinsi") as string;
+        const etgbTarihiStr = formData.get("etgbTarihi") as string;
+        const etgbFaturaTarihiStr = formData.get("etgbFaturaTarihi") as string;
         const etgbPdf = formData.get("etgbPdf") as File | null;
 
         if (etgbNo) {
             updateData.etgbNo = etgbNo;
         }
         if (etgbTutar) {
-            updateData.etgbTutar = parseFloat(etgbTutar);
+            updateData.etgbTutar = parseDecimal(etgbTutar);
         }
         if (etgbDovizCinsi) {
             updateData.etgbDovizCinsi = etgbDovizCinsi;
+        }
+        if (etgbTarihiStr) {
+            updateData.etgbTarihi = new Date(etgbTarihiStr);
+        }
+        if (etgbFaturaTarihiStr) {
+            updateData.etgbFaturaTarihi = new Date(etgbFaturaTarihiStr);
         }
         if (etgbPdf && etgbPdf.size > 0) {
             if (etgbPdf.type !== "application/pdf") {
@@ -164,7 +232,10 @@ export async function GET(request: NextRequest) {
             select: {
                 invoiceNumber: true,
                 invoiceDate: true,
+                amount: true,
                 pdfUrl: true,
+                etgbPdfUrl: true,
+                etgbNumber: true,
             },
         });
 
