@@ -63,8 +63,15 @@ model OrderDocument {
   userId          String   // Belgeyi yükleyen kullanıcı
 
   // Alış Faturası
-  alisFaturaNo    String?
-  alisPdfUrl      String?
+  alisFaturaNo      String?
+  alisFaturaTarihi  DateTime?
+  alisSaticiUnvani  String?
+  alisSaticiVkn     String?
+  alisKdvHaricTutar Float?
+  alisKdvTutari     Float?
+  alisUrunBilgisi   String?
+  alisUrunAdedi     String?
+  alisPdfUrl        String?
 
   // Satış Faturası
   satisFaturaTarihi DateTime?
@@ -76,6 +83,8 @@ model OrderDocument {
   etgbNo          String?
   etgbTutar       Float?
   etgbDovizCinsi  String?  // USD veya EUR
+  etgbTarihi      DateTime?  // ETGB Tarihi
+  etgbFaturaTarihi DateTime? // ETGB'deki Fatura Tarihi
   etgbPdfUrl      String?
 
   createdAt       DateTime  @default(now())
