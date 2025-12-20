@@ -87,6 +87,9 @@ model OrderDocument {
   etgbFaturaTarihi DateTime? // ETGB'deki Fatura Tarihi
   etgbPdfUrl      String?
 
+  // Sipariş Notu
+  note            String?
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

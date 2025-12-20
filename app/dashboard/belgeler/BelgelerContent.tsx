@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import DocumentUploadModal, { DocumentFormData } from "./DocumentUploadModal";
 import BulkImportModal from "./BulkImportModal";
 import BatchOcrModal from "./BatchOcrModal";
+import NoteModal from "./NoteModal";
 
 interface OzonOrder {
     posting_number: string;
@@ -51,6 +52,7 @@ interface ApiResponse {
     pagination: Pagination;
     filter: { year: number; month: number };
     documentStatus?: Record<string, { alis: boolean; satis: boolean; etgb: boolean }>;
+    orderNotes?: Record<string, string | null>;
     error?: string;
 }
 
@@ -121,6 +123,34 @@ export default function BelgelerContent() {
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
     const [isBatchOcrModalOpen, setIsBatchOcrModalOpen] = useState(false);
+    const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+    const [notePostingNumber, setNotePostingNumber] = useState("");
+    const [localNotes, setLocalNotes] = useState<Record<string, string | null>>({});
+
+    const openNoteModal = (postingNumber: string) => {
+        setNotePostingNumber(postingNumber);
+        setIsNoteModalOpen(true);
+    };
+
+    const handleSaveNote = async (note: string) => {
+        const response = await fetch("/api/order-documents/note", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ postingNumber: notePostingNumber, note }),
+        });
+        if (response.ok) {
+            setLocalNotes(prev => ({ ...prev, [notePostingNumber]: note || null }));
+        } else {
+            throw new Error("Not kaydedilemedi");
+        }
+    };
+
+    const getNote = (postingNumber: string): string | null => {
+        if (postingNumber in localNotes) {
+            return localNotes[postingNumber];
+        }
+        return data?.orderNotes?.[postingNumber] || null;
+    };
 
     const handleSearch = async () => {
         const trimmedQuery = searchQuery.trim();
@@ -553,13 +583,14 @@ export default function BelgelerContent() {
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ürün</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Durum</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Belge Durumu</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Not</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Detay</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {getDisplayOrders().length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
+                                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-500">
                                         {statusFilter ? "Bu filtreye uygun sipariş bulunamadı." : "Bu dönem için sipariş bulunamadı."}
                                     </td>
                                 </tr>
@@ -613,6 +644,23 @@ export default function BelgelerContent() {
                                                     >
                                                         E
                                                     </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div
+                                                    onClick={() => openNoteModal(order.posting_number)}
+                                                    className="cursor-pointer group min-w-[100px] min-h-[24px] flex items-center"
+                                                    title="Not görüntüle/düzenle"
+                                                >
+                                                    {getNote(order.posting_number) ? (
+                                                        <span className="text-xs text-gray-700 truncate max-w-[150px] hover:text-indigo-600" title={getNote(order.posting_number) || ""}>
+                                                            📝 {getNote(order.posting_number)}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-300 group-hover:text-indigo-500 italic">
+                                                            + Not ekle
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">
@@ -689,6 +737,14 @@ export default function BelgelerContent() {
                     // Refresh the orders to update document status
                     fetchOrders();
                 }}
+            />
+
+            <NoteModal
+                isOpen={isNoteModalOpen}
+                onClose={() => setIsNoteModalOpen(false)}
+                postingNumber={notePostingNumber}
+                initialNote={getNote(notePostingNumber)}
+                onSave={handleSaveNote}
             />
         </div>
     );

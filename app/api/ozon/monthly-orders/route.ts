@@ -219,6 +219,7 @@ export async function GET(request: NextRequest) {
                 alisPdfUrl: true,
                 satisPdfUrl: true,
                 etgbPdfUrl: true,
+                note: true,
             },
         });
 
@@ -236,8 +237,9 @@ export async function GET(request: NextRequest) {
         const docMap = new Map(orderDocuments.map(d => [d.postingNumber, d]));
         const invMap = new Map(invoices.map(i => [i.postingNumber, i]));
 
-        // Build document status map
+        // Build document status and notes map
         const documentStatus: Record<string, { alis: boolean; satis: boolean; etgb: boolean }> = {};
+        const orderNotes: Record<string, string | null> = {};
         for (const posting of allPostings) {
             const doc = docMap.get(posting.posting_number);
             const inv = invMap.get(posting.posting_number);
@@ -246,12 +248,14 @@ export async function GET(request: NextRequest) {
                 satis: !!(doc?.satisPdfUrl || inv?.pdfUrl),
                 etgb: !!(doc?.etgbPdfUrl || inv?.etgbPdfUrl),
             };
+            orderNotes[posting.posting_number] = doc?.note || null;
         }
 
         return NextResponse.json({
             orders: paginatedPostings,
             allOrders: returnAll ? allPostings : undefined, // Include all unfiltered orders for caching
             documentStatus, // Add document status
+            orderNotes, // Add order notes
             stats: {
                 totalOrders,
                 cancelledOrders,

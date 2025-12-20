@@ -178,6 +178,12 @@ export async function POST(request: NextRequest) {
             updateData.etgbPdfUrl = await uploadPdfToBlob(etgbPdf, "belgeler/etgb", postingNumber);
         }
 
+        // Note field
+        const note = formData.get("note") as string;
+        if (note !== null && note !== undefined) {
+            updateData.note = note || null; // Allow clearing note with empty string
+        }
+
         // Upsert document
         const document = await prisma.orderDocument.upsert({
             where: { postingNumber },

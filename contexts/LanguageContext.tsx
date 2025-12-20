@@ -236,6 +236,7 @@ const translations = {
     "noNotificationsYet": "Henüz bildirim yok. Satıcılar iptal edilen siparişleri bildirdiğinde burada görünecek.",
     "confirmRevert": "Geri almak istediğinize emin misiniz?",
     "copyToClipboard": "Panoya kopyala",
+    "ocrTest": "OCR Test",
   },
   ru: {
     // Header
@@ -458,6 +459,7 @@ const translations = {
     "noNotificationsYet": "Уведомлений пока нет. Они появятся здесь, когда продавцы сообщат об отмененных заказах.",
     "confirmRevert": "Вы уверены, что хотите отменить?",
     "copyToClipboard": "Скопировать в буфер",
+    "ocrTest": "OCR Тест",
   },
 };
 
