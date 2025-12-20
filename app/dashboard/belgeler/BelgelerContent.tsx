@@ -262,6 +262,30 @@ export default function BelgelerContent() {
             throw new Error(errorData.error || "Kayıt başarısız");
         }
 
+        // Belge durumunu lokal olarak güncelle (A/S/E butonları anlık güncellensin)
+        const postingNum = formData.postingNumber;
+        const hasAlis = !!(formData.alis.pdfFile || formData.alis.faturaNo);
+        const hasSatis = !!(formData.satis.pdfFile || formData.satis.faturaNo);
+        const hasEtgb = !!(formData.etgb.pdfFile || formData.etgb.etgbNo);
+
+        setData(prevData => {
+            if (!prevData) return prevData;
+
+            const currentStatus = prevData.documentStatus?.[postingNum] || { alis: false, satis: false, etgb: false };
+
+            return {
+                ...prevData,
+                documentStatus: {
+                    ...prevData.documentStatus,
+                    [postingNum]: {
+                        alis: currentStatus.alis || hasAlis,
+                        satis: currentStatus.satis || hasSatis,
+                        etgb: currentStatus.etgb || hasEtgb,
+                    }
+                }
+            };
+        });
+
         alert("Belgeler başarıyla kaydedildi!");
     };
 
