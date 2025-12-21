@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
         const mimeType = file.type || "image/png";
 
         const genAI = getGeminiClient();
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
         let prompt = "";
 
