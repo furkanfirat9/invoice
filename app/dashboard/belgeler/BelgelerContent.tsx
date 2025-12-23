@@ -51,7 +51,14 @@ interface ApiResponse {
     stats: OrderStats;
     pagination: Pagination;
     filter: { year: number; month: number };
-    documentStatus?: Record<string, { alis: boolean; satis: boolean; etgb: boolean }>;
+    documentStatus?: Record<string, {
+        alis: boolean;
+        satis: boolean;
+        etgb: boolean;
+        alisAliciVkn: string | null;
+        alisFaturaTarihi: string | null;
+        satisFaturaTarihi: string | null;
+    }>;
     orderNotes?: Record<string, string | null>;
     error?: string;
 }
@@ -202,6 +209,9 @@ export default function BelgelerContent() {
         if (formData.alis.saticiVkn) {
             data.append("alisSaticiVkn", formData.alis.saticiVkn);
         }
+        if (formData.alis.aliciVkn) {
+            data.append("alisAliciVkn", formData.alis.aliciVkn);
+        }
         if (formData.alis.kdvHaricTutar) {
             data.append("alisKdvHaricTutar", formData.alis.kdvHaricTutar);
         }
@@ -271,7 +281,14 @@ export default function BelgelerContent() {
         setData(prevData => {
             if (!prevData) return prevData;
 
-            const currentStatus = prevData.documentStatus?.[postingNum] || { alis: false, satis: false, etgb: false };
+            const currentStatus = prevData.documentStatus?.[postingNum] || {
+                alis: false,
+                satis: false,
+                etgb: false,
+                alisAliciVkn: null,
+                alisFaturaTarihi: null,
+                satisFaturaTarihi: null
+            };
 
             return {
                 ...prevData,
@@ -281,12 +298,43 @@ export default function BelgelerContent() {
                         alis: currentStatus.alis || hasAlis,
                         satis: currentStatus.satis || hasSatis,
                         etgb: currentStatus.etgb || hasEtgb,
+                        alisAliciVkn: formData.alis.aliciVkn || currentStatus.alisAliciVkn || null,
+                        alisFaturaTarihi: formData.alis.faturaTarihi || currentStatus.alisFaturaTarihi || null,
+                        satisFaturaTarihi: formData.satis.faturaTarihi || currentStatus.satisFaturaTarihi || null,
                     }
                 }
             };
         });
 
-        alert("Belgeler başarıyla kaydedildi!");
+        // Başarılı kayıt - alert kaldırıldı
+    };
+
+    const handleDocumentDeleted = (postingNum: string, documentType: "alis" | "satis" | "etgb") => {
+        setData(prevData => {
+            if (!prevData) return prevData;
+
+            const currentStatus = prevData.documentStatus?.[postingNum] || {
+                alis: false,
+                satis: false,
+                etgb: false,
+                alisAliciVkn: null,
+                alisFaturaTarihi: null,
+                satisFaturaTarihi: null
+            };
+
+            return {
+                ...prevData,
+                documentStatus: {
+                    ...prevData.documentStatus,
+                    [postingNum]: {
+                        ...currentStatus,
+                        ...(documentType === "alis" ? { alis: false, alisAliciVkn: null } : {}),
+                        ...(documentType === "satis" ? { satis: false } : {}),
+                        ...(documentType === "etgb" ? { etgb: false } : {}),
+                    }
+                }
+            };
+        });
     };
 
     // Fetch all orders for the month (only when year/month changes)
@@ -668,6 +716,96 @@ export default function BelgelerContent() {
                                                     >
                                                         E
                                                     </span>
+                                                    {/* Uyarı Badge - VKN ve Tarih kontrolü */}
+                                                    {(() => {
+                                                        const warnings: { type: string; title: string; details: React.ReactNode }[] = [];
+
+                                                        // VKN Kontrolü
+                                                        if (docStatus?.alis && docStatus?.alisAliciVkn !== "30073700460") {
+                                                            if (docStatus?.alisAliciVkn) {
+                                                                warnings.push({
+                                                                    type: "vkn",
+                                                                    title: "Alıcı VKN Uyuşmuyor!",
+                                                                    details: (
+                                                                        <>
+                                                                            <div className="text-gray-300 mt-0.5">
+                                                                                Beklenen: <span className="text-emerald-400 font-mono">30073700460</span>
+                                                                            </div>
+                                                                            <div className="text-gray-300">
+                                                                                Bulunan: <span className="text-red-400 font-mono">{docStatus.alisAliciVkn}</span>
+                                                                            </div>
+                                                                        </>
+                                                                    )
+                                                                });
+                                                            } else {
+                                                                warnings.push({
+                                                                    type: "vkn",
+                                                                    title: "Alıcı VKN Eksik!",
+                                                                    details: <div className="text-gray-300 mt-0.5">Faturada alıcı VKN bilgisi bulunamadı.</div>
+                                                                });
+                                                            }
+                                                        }
+
+                                                        // Tarih Kontrolü - Alış tarihi, Satış tarihinden sonra mı?
+                                                        if (docStatus?.alis && docStatus?.satis && docStatus?.alisFaturaTarihi && docStatus?.satisFaturaTarihi) {
+                                                            const alisDate = new Date(docStatus.alisFaturaTarihi);
+                                                            const satisDate = new Date(docStatus.satisFaturaTarihi);
+                                                            if (alisDate > satisDate) {
+                                                                warnings.push({
+                                                                    type: "tarih",
+                                                                    title: "Tarih Tutarsızlığı!",
+                                                                    details: (
+                                                                        <>
+                                                                            <div className="text-gray-300 mt-0.5">
+                                                                                Alış Tarihi: <span className="text-red-400 font-mono">{alisDate.toLocaleDateString("tr-TR")}</span>
+                                                                            </div>
+                                                                            <div className="text-gray-300">
+                                                                                Satış Tarihi: <span className="text-emerald-400 font-mono">{satisDate.toLocaleDateString("tr-TR")}</span>
+                                                                            </div>
+                                                                            <div className="text-gray-400 text-[10px] mt-1">Alış faturası, satıştan sonra kesilmiş!</div>
+                                                                        </>
+                                                                    )
+                                                                });
+                                                            }
+                                                        }
+
+                                                        if (warnings.length === 0) return null;
+
+                                                        return (
+                                                            <div className="relative group/warn">
+                                                                <span className={`w-6 h-6 flex items-center justify-center text-xs font-bold rounded border ${warnings.length > 1
+                                                                        ? "bg-red-500 text-white border-red-500"
+                                                                        : "bg-amber-500 text-white border-amber-500"
+                                                                    } animate-pulse cursor-help`}>
+                                                                    ⚠
+                                                                </span>
+                                                                {/* Sayı badge - birden fazla uyarı varsa */}
+                                                                {warnings.length > 1 && (
+                                                                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 flex items-center justify-center text-[10px] font-bold bg-red-600 text-white rounded-full border border-white shadow-sm">
+                                                                        {warnings.length}
+                                                                    </span>
+                                                                )}
+                                                                {/* Custom Tooltip */}
+                                                                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/warn:block z-50">
+                                                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl min-w-[200px]">
+                                                                        {warnings.map((warning, idx) => (
+                                                                            <div key={warning.type} className={idx > 0 ? "mt-3 pt-3 border-t border-gray-700" : ""}>
+                                                                                <div className="flex items-start gap-2">
+                                                                                    <span className="text-amber-400 mt-0.5">⚠️</span>
+                                                                                    <div>
+                                                                                        <div className="font-semibold text-amber-300">{warning.title}</div>
+                                                                                        {warning.details}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                    {/* Arrow */}
+                                                                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-gray-900"></div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">
@@ -742,6 +880,7 @@ export default function BelgelerContent() {
                 postingNumber={selectedPostingNumber}
                 customerName={selectedCustomerName}
                 onSave={handleSaveDocument}
+                onDelete={handleDocumentDeleted}
             />
 
             <BulkImportModal

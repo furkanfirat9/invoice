@@ -8,6 +8,7 @@ interface DocumentUploadModalProps {
     postingNumber: string;
     customerName?: string;
     onSave: (data: DocumentFormData) => Promise<void>;
+    onDelete?: (postingNumber: string, documentType: "alis" | "satis" | "etgb") => void;
 }
 
 export interface DocumentFormData {
@@ -17,6 +18,7 @@ export interface DocumentFormData {
         faturaTarihi: string;
         saticiUnvani: string;
         saticiVkn: string;
+        aliciVkn: string;
         kdvHaricTutar: string;
         kdvTutari: string;
         urunBilgisi: string;
@@ -45,6 +47,7 @@ interface ExistingDocument {
     alisFaturaTarihi?: string;
     alisSaticiUnvani?: string;
     alisSaticiVkn?: string;
+    alisAliciVkn?: string;
     alisKdvHaricTutar?: number;
     alisKdvTutari?: number;
     alisUrunBilgisi?: string;
@@ -97,10 +100,12 @@ export default function DocumentUploadModal({
     postingNumber,
     customerName,
     onSave,
+    onDelete,
 }: DocumentUploadModalProps) {
     const [activeTab, setActiveTab] = useState<TabType>("alis");
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const [existingDoc, setExistingDoc] = useState<ExistingDocument | null>(null);
 
     // Alış Faturası States
@@ -108,6 +113,7 @@ export default function DocumentUploadModal({
     const [alisFaturaTarihi, setAlisFaturaTarihi] = useState("");
     const [alisSaticiUnvani, setAlisSaticiUnvani] = useState("");
     const [alisSaticiVkn, setAlisSaticiVkn] = useState("");
+    const [alisAliciVkn, setAlisAliciVkn] = useState("");
     const [alisKdvHaricTutar, setAlisKdvHaricTutar] = useState("");
     const [alisKdvTutari, setAlisKdvTutari] = useState("");
     const [alisUrunBilgisi, setAlisUrunBilgisi] = useState("");
@@ -163,6 +169,7 @@ export default function DocumentUploadModal({
                 }
                 if (data.saticiUnvani) setAlisSaticiUnvani(data.saticiUnvani);
                 if (data.saticiVkn) setAlisSaticiVkn(data.saticiVkn);
+                if (data.aliciVkn) setAlisAliciVkn(data.aliciVkn);
                 if (data.kdvHaricTutar) setAlisKdvHaricTutar(normalizeDecimal(data.kdvHaricTutar));
                 if (data.kdvTutari) setAlisKdvTutari(normalizeDecimal(data.kdvTutari));
                 if (data.urunBilgisi) setAlisUrunBilgisi(data.urunBilgisi);
@@ -308,6 +315,7 @@ export default function DocumentUploadModal({
                     }
                     setAlisSaticiUnvani(doc.alisSaticiUnvani || "");
                     setAlisSaticiVkn(doc.alisSaticiVkn || "");
+                    setAlisAliciVkn(doc.alisAliciVkn || "");
                     setAlisKdvHaricTutar(doc.alisKdvHaricTutar?.toString() || "");
                     setAlisKdvTutari(doc.alisKdvTutari?.toString() || "");
                     setAlisUrunBilgisi(doc.alisUrunBilgisi || "");
@@ -400,6 +408,7 @@ export default function DocumentUploadModal({
                     faturaTarihi: alisFaturaTarihi,
                     saticiUnvani: alisSaticiUnvani,
                     saticiVkn: alisSaticiVkn,
+                    aliciVkn: alisAliciVkn,
                     kdvHaricTutar: alisKdvHaricTutar,
                     kdvTutari: alisKdvTutari,
                     urunBilgisi: alisUrunBilgisi,
@@ -425,6 +434,7 @@ export default function DocumentUploadModal({
         setAlisFaturaTarihi("");
         setAlisSaticiUnvani("");
         setAlisSaticiVkn("");
+        setAlisAliciVkn("");
         setAlisKdvHaricTutar("");
         setAlisKdvTutari("");
         setAlisUrunBilgisi("");
@@ -450,6 +460,75 @@ export default function DocumentUploadModal({
 
         setActiveTab("alis");
         setExistingDoc(null);
+    };
+
+    const handleDeleteDocument = async (documentType: "alis" | "satis" | "etgb") => {
+        const typeLabels = {
+            alis: "Alış Faturası",
+            satis: "Satış Faturası",
+            etgb: "ETGB"
+        };
+
+        const confirmed = window.confirm(
+            `${typeLabels[documentType]} bilgilerini silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz!`
+        );
+
+        if (!confirmed) return;
+
+        setDeleting(true);
+        try {
+            const response = await fetch("/api/order-documents/delete", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ postingNumber, documentType }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Silme işlemi başarısız");
+            }
+
+            // Clear local state based on document type
+            if (documentType === "alis") {
+                setAlisFaturaNo("");
+                setAlisFaturaTarihi("");
+                setAlisSaticiUnvani("");
+                setAlisSaticiVkn("");
+                setAlisAliciVkn("");
+                setAlisKdvHaricTutar("");
+                setAlisKdvTutari("");
+                setAlisUrunBilgisi("");
+                setAlisUrunAdedi("");
+                setAlisPdf(null);
+                setExistingDoc(prev => prev ? { ...prev, alisPdfUrl: undefined } : null);
+            } else if (documentType === "satis") {
+                setSatisFaturaTarihi("");
+                setSatisFaturaNo("");
+                setSatisAliciAdSoyad("");
+                setSatisPdf(null);
+                setExistingDoc(prev => prev ? { ...prev, satisPdfUrl: undefined } : null);
+            } else if (documentType === "etgb") {
+                setEtgbNo("");
+                setEtgbTutar("");
+                setEtgbDovizCinsi("USD");
+                setEtgbTarihi("");
+                setEtgbFaturaTarihi("");
+                setEtgbPdf(null);
+                setExistingDoc(prev => prev ? { ...prev, etgbPdfUrl: undefined } : null);
+            }
+
+            // Parent component'ı bilgilendir
+            if (onDelete) {
+                onDelete(postingNumber, documentType);
+            }
+
+            alert(`${typeLabels[documentType]} başarıyla silindi.`);
+        } catch (error: any) {
+            console.error("Delete error:", error);
+            alert(`Silme hatası: ${error.message}`);
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const handleClose = () => {
@@ -748,7 +827,7 @@ export default function DocumentUploadModal({
                                             />
                                         </div>
 
-                                        {/* Row 3: VKN & Ürün Adedi */}
+                                        {/* Row 3: Satıcı VKN & Alıcı VKN */}
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="group">
                                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Satıcı VKN</label>
@@ -756,23 +835,36 @@ export default function DocumentUploadModal({
                                                     type="text"
                                                     value={alisSaticiVkn}
                                                     onChange={(e) => setAlisSaticiVkn(e.target.value)}
-                                                    placeholder={alisOcrLoading ? "Okunuyor..." : "Vergi kimlik no"}
+                                                    placeholder={alisOcrLoading ? "Okunuyor..." : "Satıcı vergi kimlik no"}
                                                     disabled={alisOcrLoading}
                                                     className={`w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 hover:border-gray-300 ${alisOcrLoading ? "bg-gray-50 text-gray-400" : ""}`}
                                                 />
                                             </div>
                                             <div className="group">
-                                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Ürün Adedi</label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Alıcı VKN</label>
                                                 <input
                                                     type="text"
-                                                    inputMode="numeric"
-                                                    value={alisUrunAdedi}
-                                                    onChange={(e) => setAlisUrunAdedi(e.target.value)}
-                                                    placeholder={alisOcrLoading ? "Okunuyor..." : "Örn: 1, 3, 5"}
+                                                    value={alisAliciVkn}
+                                                    onChange={(e) => setAlisAliciVkn(e.target.value)}
+                                                    placeholder={alisOcrLoading ? "Okunuyor..." : "Alıcı vergi kimlik no"}
                                                     disabled={alisOcrLoading}
                                                     className={`w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 hover:border-gray-300 ${alisOcrLoading ? "bg-gray-50 text-gray-400" : ""}`}
                                                 />
                                             </div>
+                                        </div>
+
+                                        {/* Row 4: Ürün Adedi */}
+                                        <div className="group">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Ürün Adedi</label>
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                value={alisUrunAdedi}
+                                                onChange={(e) => setAlisUrunAdedi(e.target.value)}
+                                                placeholder={alisOcrLoading ? "Okunuyor..." : "Örn: 1, 3, 5"}
+                                                disabled={alisOcrLoading}
+                                                className={`w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 hover:border-gray-300 ${alisOcrLoading ? "bg-gray-50 text-gray-400" : ""}`}
+                                            />
                                         </div>
 
                                         {/* Row 4: KDV Hariç & KDV Tutarı */}
@@ -824,6 +916,35 @@ export default function DocumentUploadModal({
                                             onFileChange={(e) => handleFileChange(e, handleAlisPdfChange)}
                                             setFile={handleAlisPdfChange}
                                         />
+
+                                        {/* Delete Button - sadece mevcut belge varsa göster */}
+                                        {(existingDoc?.alisPdfUrl || alisFaturaNo || alisSaticiUnvani) && (
+                                            <div className="pt-2 border-t border-gray-100">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteDocument("alis")}
+                                                    disabled={deleting}
+                                                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 hover:border-red-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {deleting ? (
+                                                        <>
+                                                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                            </svg>
+                                                            Siliniyor...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                            Alış Faturasını Sil
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 

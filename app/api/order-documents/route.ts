@@ -98,6 +98,10 @@ export async function POST(request: NextRequest) {
         if (alisSaticiVkn) {
             updateData.alisSaticiVkn = alisSaticiVkn;
         }
+        const alisAliciVkn = formData.get("alisAliciVkn") as string;
+        if (alisAliciVkn) {
+            updateData.alisAliciVkn = alisAliciVkn;
+        }
         if (alisKdvHaricTutar) {
             updateData.alisKdvHaricTutar = parseDecimal(alisKdvHaricTutar);
         }

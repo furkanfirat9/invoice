@@ -217,7 +217,10 @@ export async function GET(request: NextRequest) {
             select: {
                 postingNumber: true,
                 alisPdfUrl: true,
+                alisAliciVkn: true,
+                alisFaturaTarihi: true,
                 satisPdfUrl: true,
+                satisFaturaTarihi: true,
                 etgbPdfUrl: true,
                 note: true,
             },
@@ -238,7 +241,14 @@ export async function GET(request: NextRequest) {
         const invMap = new Map(invoices.map(i => [i.postingNumber, i]));
 
         // Build document status and notes map
-        const documentStatus: Record<string, { alis: boolean; satis: boolean; etgb: boolean }> = {};
+        const documentStatus: Record<string, {
+            alis: boolean;
+            satis: boolean;
+            etgb: boolean;
+            alisAliciVkn: string | null;
+            alisFaturaTarihi: string | null;
+            satisFaturaTarihi: string | null;
+        }> = {};
         const orderNotes: Record<string, string | null> = {};
         for (const posting of allPostings) {
             const doc = docMap.get(posting.posting_number);
@@ -247,6 +257,9 @@ export async function GET(request: NextRequest) {
                 alis: !!doc?.alisPdfUrl,
                 satis: !!(doc?.satisPdfUrl || inv?.pdfUrl),
                 etgb: !!(doc?.etgbPdfUrl || inv?.etgbPdfUrl),
+                alisAliciVkn: doc?.alisAliciVkn || null,
+                alisFaturaTarihi: doc?.alisFaturaTarihi?.toISOString() || null,
+                satisFaturaTarihi: doc?.satisFaturaTarihi?.toISOString() || null,
             };
             orderNotes[posting.posting_number] = doc?.note || null;
         }

@@ -67,6 +67,7 @@ model OrderDocument {
   alisFaturaTarihi  DateTime?
   alisSaticiUnvani  String?
   alisSaticiVkn     String?
+  alisAliciVkn      String?
   alisKdvHaricTutar Float?
   alisKdvTutari     Float?
   alisUrunBilgisi   String?
@@ -160,3 +161,4 @@ model CancellationTracking {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
+

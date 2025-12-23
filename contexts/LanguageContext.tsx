@@ -32,6 +32,7 @@ const translations = {
     "courierHandover": "Kurye Teslim",
     "kuryeTeslim": "Kurye Teslim",
     "depo": "Depo",
+    "invoices": "Faturalar",
     "logout": "Çıkış Yap",
 
     // Dashboard
@@ -255,6 +256,7 @@ const translations = {
     "courierHandover": "Передача курьеру",
     "kuryeTeslim": "Передача курьеру",
     "depo": "Склад",
+    "invoices": "Счета",
     "logout": "Выйти",
     "carrierPanelTitle": "Панель перевозчика",
     "carrierRole": "ПЕРЕВОЗЧИК (служба доставки)",
