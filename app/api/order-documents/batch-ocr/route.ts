@@ -88,27 +88,33 @@ Lütfen şu bilgileri bul ve JSON formatında döndür:
 4. SATICI VERGİ KİMLİK NUMARASI (VKN):
    - 10 veya 11 haneli vergi/TC kimlik numarası
    - Genelde "VKN", "V.K.N", "Vergi No" etiketinin yanında bulunur
+   - SATICI bilgileri bölümünde yer alır
 
-5. KDV HARİÇ TUTAR:
+5. ALICI VERGİ KİMLİK NUMARASI (VKN):
+   - 10 veya 11 haneli vergi/TC kimlik numarası
+   - ALICI veya MÜŞTERİ bilgileri bölümünde yer alır
+   - Genelde faturanın sağ tarafında veya alt kısmında bulunur
+
+6. KDV HARİÇ TUTAR:
    - Vergiler düşülmeden önceki net tutar
    - Sadece sayı olarak yaz (Örn: "1250.50")
    - "Ara Toplam", "Matrah" veya "KDV Matrahı" etiketinin yanında bulunur
 
-6. KDV TUTARI:
+7. KDV TUTARI:
    - Katma Değer Vergisi tutarı
    - Sadece sayı olarak yaz (Örn: "225.09")
 
-7. ÜRÜN BİLGİSİ:
+8. ÜRÜN BİLGİSİ:
    - Faturadaki ürünün marka ve model bilgisi
    - Örnek: "Tefal EY8018", "Philips EP3347"
    - Birden fazla ürün varsa virgülle ayır
 
-8. ÜRÜN ADEDİ:
+9. ÜRÜN ADEDİ:
    - Faturadaki toplam ürün miktarı
    - Sadece sayı olarak yaz (örn: "1", "3", "5")
 
 SADECE aşağıdaki JSON formatında cevap ver, başka hiçbir şey yazma:
-{"faturaNo": "...", "faturaTarihi": "...", "saticiUnvani": "...", "saticiVkn": "...", "kdvHaricTutar": "...", "kdvTutari": "...", "urunBilgisi": "...", "urunAdedi": "..."}`;
+{"faturaNo": "...", "faturaTarihi": "...", "saticiUnvani": "...", "saticiVkn": "...", "aliciVkn": "...", "kdvHaricTutar": "...", "kdvTutari": "...", "urunBilgisi": "...", "urunAdedi": "..."}`;
         } else if (type === "satis") {
             prompt = `Bu bir satış faturası belgesidir.
 
@@ -246,6 +252,9 @@ export async function POST(request: NextRequest) {
                         }
                         if (!doc.alisSaticiVkn && ocrResult.saticiVkn) {
                             updateData.alisSaticiVkn = ocrResult.saticiVkn;
+                        }
+                        if (!doc.alisAliciVkn && ocrResult.aliciVkn) {
+                            updateData.alisAliciVkn = ocrResult.aliciVkn;
                         }
                         if (!doc.alisKdvHaricTutar && ocrResult.kdvHaricTutar) {
                             updateData.alisKdvHaricTutar = parseDecimal(ocrResult.kdvHaricTutar);

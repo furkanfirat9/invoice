@@ -43,14 +43,15 @@ Lütfen şu bilgileri bul ve JSON formatında döndür:
 1. FATURA NUMARASI: "Belge No" veya "Fatura No" etiketinin yanındaki değer
 2. FATURA TARİHİ: Faturanın düzenlendiği tarih (GG.AA.YYYY formatında)
 3. SATICI ÜNVANI: Faturayı kesen firmanın tam ticari ünvanı
-4. SATICI VKN: 10 veya 11 haneli vergi/TC kimlik numarası
-5. KDV HARİÇ TUTAR: Vergiler düşülmeden önceki net tutar (sadece sayı)
-6. KDV TUTARI: Katma Değer Vergisi tutarı (sadece sayı)
-7. ÜRÜN BİLGİSİ: Faturadaki ürünün marka ve model bilgisi
-8. ÜRÜN ADEDİ: Faturadaki toplam ürün miktarı (sadece sayı)
+4. SATICI VKN: 10 veya 11 haneli vergi/TC kimlik numarası (SATICI bilgileri bölümünde)
+5. ALICI VKN: 10 veya 11 haneli vergi/TC kimlik numarası (ALICI veya MÜŞTERİ bilgileri bölümünde)
+6. KDV HARİÇ TUTAR: Vergiler düşülmeden önceki net tutar (sadece sayı)
+7. KDV TUTARI: Katma Değer Vergisi tutarı (sadece sayı)
+8. ÜRÜN BİLGİSİ: Faturadaki ürünün marka ve model bilgisi
+9. ÜRÜN ADEDİ: Faturadaki toplam ürün miktarı (sadece sayı)
 
 SADECE aşağıdaki JSON formatında cevap ver:
-{"faturaNo": "...", "faturaTarihi": "...", "saticiUnvani": "...", "saticiVkn": "...", "kdvHaricTutar": "...", "kdvTutari": "...", "urunBilgisi": "...", "urunAdedi": "..."}`,
+{"faturaNo": "...", "faturaTarihi": "...", "saticiUnvani": "...", "saticiVkn": "...", "aliciVkn": "...", "kdvHaricTutar": "...", "kdvTutari": "...", "urunBilgisi": "...", "urunAdedi": "..."}`,
 
     satis: `Bu bir satış faturası belgesidir.
 
@@ -165,6 +166,7 @@ export async function POST(request: NextRequest) {
                     if (ocrResult.faturaTarihi) updateData.alisFaturaTarihi = parseDate(ocrResult.faturaTarihi);
                     if (ocrResult.saticiUnvani) updateData.alisSaticiUnvani = ocrResult.saticiUnvani;
                     if (ocrResult.saticiVkn) updateData.alisSaticiVkn = ocrResult.saticiVkn;
+                    if (ocrResult.aliciVkn) updateData.alisAliciVkn = ocrResult.aliciVkn;
                     if (ocrResult.kdvHaricTutar) updateData.alisKdvHaricTutar = parseDecimal(ocrResult.kdvHaricTutar);
                     if (ocrResult.kdvTutari) updateData.alisKdvTutari = parseDecimal(ocrResult.kdvTutari);
                     if (ocrResult.urunBilgisi) updateData.alisUrunBilgisi = ocrResult.urunBilgisi;

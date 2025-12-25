@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
                 updateData.alisFaturaTarihi = null;
                 updateData.alisSaticiUnvani = null;
                 updateData.alisSaticiVkn = null;
+                updateData.alisAliciVkn = null;
                 updateData.alisKdvHaricTutar = null;
                 updateData.alisKdvTutari = null;
                 updateData.alisUrunBilgisi = null;
