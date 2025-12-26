@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { isElif } from "@/lib/auth-utils";
 
 interface CancellationItem {
     id: string;
@@ -38,6 +41,8 @@ const STATUS_LABELS: Record<string, { text: string; color: string; bgColor: stri
 };
 
 export default function DepoPage() {
+    const { data: session, status } = useSession();
+    const router = useRouter();
     const { t } = useLanguage();
     const [activeTab, setActiveTab] = useState<TabType>("cancellations");
     const [isLoading, setIsLoading] = useState(false);
@@ -46,6 +51,20 @@ export default function DepoPage() {
     const [isPageLoaded, setIsPageLoaded] = useState(false);
     const [notifyingItems, setNotifyingItems] = useState<Set<string>>(new Set());
     const [revertingItems, setRevertingItems] = useState<Set<string>>(new Set());
+
+    // Yetki kontrolü - sadece Elif erişebilir
+    if (status === "loading") {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-gray-500">Yükleniyor...</div>
+            </div>
+        );
+    }
+
+    if (!isElif(session?.user?.email)) {
+        router.push("/dashboard");
+        return null;
+    }
 
     // Sayfa yüklenme animasyonu
     useEffect(() => {

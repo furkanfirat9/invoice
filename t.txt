@@ -1,0 +1,29 @@
+import requests
+import xml.etree.ElementTree as ET
+
+CBR_DAILY_XML = "https://www.cbr.ru/scripts/XML_daily.asp?date_req=16/12/2025"
+
+def get_usd_rub(date: str | None = None) -> float:
+    """
+    date: 'DD/MM/YYYY' (ör. '26/12/2025') veya None (bugün)
+    dönüş: RUB per 1 USD (float)
+    """
+    params = {"date_req": date} if date else None
+    r = requests.get(CBR_DAILY_XML, params=params, timeout=20)
+    r.raise_for_status()
+
+    root = ET.fromstring(r.content)
+
+    for valute in root.findall("Valute"):
+        if valute.findtext("CharCode") == "USD":
+            nominal = int(valute.findtext("Nominal"))          # genelde 1
+            value_str = valute.findtext("Value")               # '123,45' gibi
+            value = float(value_str.replace(",", "."))
+            return value / nominal
+
+    raise RuntimeError("USD bulunamadı")
+
+if __name__ == "__main__":
+    print(get_usd_rub("16/12/2025"))
+    # Belirli gün:
+    # print("USD/RUB (26/12/2025):", get_usd_rub("26/12/2025"))

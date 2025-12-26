@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { isElif } from "@/lib/auth-utils";
 
 // Sekme tipi
 type TabType = "analiz" | "uyumsuzluk";
@@ -34,6 +37,7 @@ interface DateConflict {
     alisSaticiUnvani: string | null;
     alisSaticiVkn: string | null;
     alisAliciVkn: string | null;
+    alisUrunBilgisi: string | null;
     alisPdfUrl: string | null;
     satisFaturaNo: string | null;
     satisFaturaTarihi: string | null;
@@ -64,6 +68,9 @@ const MONTHS = [
 ];
 
 export default function FaturalarPage() {
+    const { data: session, status } = useSession();
+    const router = useRouter();
+
     // Sekme state
     const [activeTab, setActiveTab] = useState<TabType>("analiz");
 
@@ -72,6 +79,20 @@ export default function FaturalarPage() {
     const [stats, setStats] = useState<Stats | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Yetki kontrolü - sadece Elif erişebilir
+    if (status === "loading") {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-gray-500">Yükleniyor...</div>
+            </div>
+        );
+    }
+
+    if (!isElif(session?.user?.email)) {
+        router.push("/dashboard");
+        return null;
+    }
 
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -712,6 +733,7 @@ export default function FaturalarPage() {
                                     <thead className="bg-gray-50 border-b border-gray-200">
                                         <tr>
                                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Gönderi No</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ürün Bilgisi</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Alış Faturası</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Satış Faturası</th>
                                             <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Fark</th>
@@ -723,6 +745,11 @@ export default function FaturalarPage() {
                                             <tr key={conflict.postingNumber} className="hover:bg-amber-50 bg-amber-50/30">
                                                 <td className="px-4 py-3">
                                                     <span className="font-mono text-sm font-medium text-gray-900">{conflict.postingNumber}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <p className="text-sm text-gray-700 truncate max-w-[200px]" title={conflict.alisUrunBilgisi || ""}>
+                                                        {conflict.alisUrunBilgisi || "-"}
+                                                    </p>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div>
@@ -757,8 +784,8 @@ export default function FaturalarPage() {
                                                             onClick={() => conflict.alisPdfUrl && openPdfModal(conflict.alisPdfUrl)}
                                                             disabled={!conflict.alisPdfUrl}
                                                             className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors ${conflict.alisPdfUrl
-                                                                    ? "text-violet-600 bg-violet-50 hover:bg-violet-100 cursor-pointer"
-                                                                    : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                                                                ? "text-violet-600 bg-violet-50 hover:bg-violet-100 cursor-pointer"
+                                                                : "text-gray-400 bg-gray-100 cursor-not-allowed"
                                                                 }`}
                                                             title={conflict.alisPdfUrl ? "Alış Faturası PDF" : "Alış Faturası PDF yok"}
                                                         >
@@ -769,8 +796,8 @@ export default function FaturalarPage() {
                                                             onClick={() => conflict.satisPdfUrl && openPdfModal(conflict.satisPdfUrl)}
                                                             disabled={!conflict.satisPdfUrl}
                                                             className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors ${conflict.satisPdfUrl
-                                                                    ? "text-emerald-600 bg-emerald-50 hover:bg-emerald-100 cursor-pointer"
-                                                                    : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                                                                ? "text-emerald-600 bg-emerald-50 hover:bg-emerald-100 cursor-pointer"
+                                                                : "text-gray-400 bg-gray-100 cursor-not-allowed"
                                                                 }`}
                                                             title={conflict.satisPdfUrl ? "Satış Faturası PDF" : "Satış Faturası PDF yok"}
                                                         >

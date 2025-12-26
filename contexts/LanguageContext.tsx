@@ -238,6 +238,11 @@ const translations = {
     "confirmRevert": "Geri almak istediğinize emin misiniz?",
     "copyToClipboard": "Panoya kopyala",
     "ocrTest": "OCR Test",
+    // Siparişler Sayfası
+    "orders": "Siparişler",
+    "ordersDesc": "Sipariş yönetimi ve takibi",
+    "noOrdersYet": "Henüz sipariş bulunmuyor",
+    "noOrdersYetDesc": "Siparişler burada görüntülenecek",
   },
   ru: {
     // Header
@@ -462,6 +467,11 @@ const translations = {
     "confirmRevert": "Вы уверены, что хотите отменить?",
     "copyToClipboard": "Скопировать в буфер",
     "ocrTest": "OCR Тест",
+    // Страница заказов
+    "orders": "Заказы",
+    "ordersDesc": "Управление и отслеживание заказов",
+    "noOrdersYet": "Заказов пока нет",
+    "noOrdersYetDesc": "Заказы будут отображаться здесь",
   },
 };
 

@@ -145,7 +145,9 @@ export async function GET(request: NextRequest) {
             "KDV Tutarı",
             "Ürün Bilgisi",
             "Ürün Adedi",
-            "PDF URL"
+            "PDF URL",
+            "Uyarı 1",
+            "Uyarı 2"
         ]];
         const satisData: any[] = [[
             "Sipariş No",
@@ -176,6 +178,29 @@ export async function GET(request: NextRequest) {
             const statusText = getStatusText(order.status);
 
             // Alış - Sipariş No > Tarih > Durum > Modal verileri
+            // Uyarıları hesapla
+            const warnings: string[] = [];
+
+            // VKN Kontrolü - Alış faturası varsa ve VKN uyuşmuyorsa
+            if (doc?.alisPdfUrl || doc?.alisFaturaNo) {
+                if (doc?.alisAliciVkn && doc?.alisAliciVkn !== "30073700460") {
+                    warnings.push(`VKN Uyuşmuyor (${doc.alisAliciVkn})`);
+                } else if (!doc?.alisAliciVkn) {
+                    warnings.push("VKN Eksik");
+                }
+            }
+
+            // Tarih Kontrolü - Her iki fatura da varsa ve alış > satış ise
+            const satisFaturaTarihi = doc?.satisFaturaTarihi || inv?.invoiceDate;
+            if (doc?.alisFaturaTarihi && satisFaturaTarihi) {
+                const alisDate = new Date(doc.alisFaturaTarihi);
+                const satisDate = new Date(satisFaturaTarihi);
+                if (alisDate > satisDate) {
+                    const farkGun = Math.ceil((alisDate.getTime() - satisDate.getTime()) / (1000 * 60 * 60 * 24));
+                    warnings.push(`Tarih Tutarsızlığı (+${farkGun} gün)`);
+                }
+            }
+
             alisData.push([
                 order.posting_number,
                 orderDate,
@@ -189,11 +214,13 @@ export async function GET(request: NextRequest) {
                 doc?.alisUrunBilgisi || "",
                 doc?.alisUrunAdedi || "",
                 doc?.alisPdfUrl || "",
+                warnings[0] || "",
+                warnings[1] || "",
             ]);
 
             // Satış - combine document and invoice data
             const satisFaturaNo = doc?.satisFaturaNo || inv?.invoiceNumber || "";
-            const satisFaturaTarihi = doc?.satisFaturaTarihi || inv?.invoiceDate;
+            const satisFaturaTarihiVal = doc?.satisFaturaTarihi || inv?.invoiceDate;
             const satisPdfUrl = doc?.satisPdfUrl || inv?.pdfUrl || "";
             const aliciAdSoyad = doc?.satisAliciAdSoyad || order.customer?.name || "";
 
@@ -202,7 +229,7 @@ export async function GET(request: NextRequest) {
                 orderDate,
                 statusText,
                 satisFaturaNo,
-                satisFaturaTarihi ? new Date(satisFaturaTarihi).toLocaleDateString('tr-TR') : "",
+                satisFaturaTarihiVal ? new Date(satisFaturaTarihiVal).toLocaleDateString('tr-TR') : "",
                 aliciAdSoyad,
                 satisPdfUrl,
             ]);
@@ -230,10 +257,11 @@ export async function GET(request: NextRequest) {
         const etgbWs = XLSX.utils.aoa_to_sheet(etgbData);
 
         // Set column widths for each sheet
-        // Alış: Sipariş No, Sipariş Tarihi, Durum, Fatura No, Fatura Tarihi, Satıcı Ünvanı, VKN, KDV Hariç, KDV Tutarı, Ürün Bilgisi, Adet, PDF URL
+        // Alış: Sipariş No, Sipariş Tarihi, Durum, Fatura No, Fatura Tarihi, Satıcı Ünvanı, VKN, KDV Hariç, KDV Tutarı, Ürün Bilgisi, Adet, PDF URL, Uyarı 1, Uyarı 2
         alisWs["!cols"] = [
             { wch: 20 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 35 },
-            { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 30 }, { wch: 8 }, { wch: 50 }
+            { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 30 }, { wch: 8 }, { wch: 50 },
+            { wch: 25 }, { wch: 25 }
         ];
         // Satış: Sipariş No, Sipariş Tarihi, Durum, Fatura No, Fatura Tarihi, Alıcı Ad Soyad, PDF URL
         satisWs["!cols"] = [

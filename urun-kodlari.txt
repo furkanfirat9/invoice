@@ -1,0 +1,122 @@
+G88D874G5	                Philips X3021/00
+PE2541F0	                Philips Bre255/05
+PE2541F1	                Philips BRE225/05
+SGT9G	                    Samsung A9 Plus
+PTM778412	                Philips MG5950/15
+GHJ77R10	                Philips MG7736/25
+G88D874G3	                Philips S3144/00
+PES145252	                Philips BRE700/05
+G777H10A	                Philips QP2724/20
+Sc1997	                    Philips SC1997/00
+GG7H441S	                Philips MG7930/15
+PTM778410	                Philips MG5920/15
+GH777S4G3	                Philips Sp9872/22
+HD9875/90	                Philips HD9875/90
+GD77DHA10	                Philips QP2724/10
+PBU3200T78	                Philips DST7511/80
+G88D874G4	                Philips X3063/00
+PBU45214	                Philips Dst8050/20
+BRI950	                    Philips BRI950/00
+PBU3200T77	                Philips DST7510/80
+PSDS526G74	                Philips BHA530/00
+PSG7150/30	                Philips PSG7150/30
+G88D874G2	                Philips S1323/41
+H88G4H0P	                Philips QP1424/10
+PCHA856G4	                Philips NA350/00
+PSKM58871G1	                Philips BHD510/00
+GH777S4G2	                Philips S5445/03
+TY774G1H0	                Philips BG1024/15
+GH777S4G0	                Philips S5887/10
+HD7462/20	                Philips HD7462/20
+PSD884569F	                Philips BHH880/00
+PLECH777S2	                Philips BRI940/00
+YD77G10A	                Philips MG7920/15
+HD9243/90	                Philips HD9243/90
+PTM778411	                Philips MG5950/15
+PES145253	                Philips BRE720/05
+GHTE7741	                Philips MG7950/15
+HD9339/80	                Philips HD9339/80
+PSKM58871G0	                Philips BHD500/00
+HR3770/00	                Philips HR3770/00
+HD9285/96	                Philips HD9285/96
+PSD2014G7	                Philips BHA301/00
+85841G11B	                Beko BEU 8030 D
+TY774G1H2	                Philips BG3017/00
+HD2590/90	                Philips HD2590/90
+PSG9050/20	                Philips PSG9050/20
+PES145255	                Philips BRE710/05
+GS7H8DS	                    Philips QP2824/10
+PBU45216	                PHILIPS DST8030/70
+XC7040/01	                Philips XC7040/01
+BRE245/05	                Philips BRE245/05
+BG5021/16	                Philips BG5021/16
+PSG6042/20	                Philips PSG6042/20
+HD9257/80	                Philips HD9257/80
+MGK7420	                    Braun MGK7420
+BRI921/00	                Philips BRI921/00
+EFE452001	                Braun Silk-Epil 3 3-000
+FR 8284	                    Beko FR 8284
+HD2581/90	                Philips HD2581/90
+PES145254	                Philips BRE730/05
+PBU3000FO	                Philips DST7061/30
+HD9875/90	                Philips HD9875/90
+PSD852651G1	                Philips BHS732/00
+FV9E50E0	                Tefal FV9E5
+SP9872/22	                Philips SP9872/22
+TBU6444710	                Tefal FV9850
+TU44410	                    Tefal FV9844
+Silk-epil 9	                Braun 9735
+Vitality Pro D103	        Oral-B Vitality Pro D103
+EY505D15	                Tefal EY505D15
+4G47H710	                Beko BEU 8030 M
+EY801D15	                Tefal EY801D15
+EY8018	                    Tefal EY8018
+2700 Вт, 1,8 л	            Philips PSG8030/20
+Влажно-сухое использование	Braun Silk Epil 9 9720
+GC9682/80	                Philips GC9682/80
+EP3347/90	                Philips EP3347/90
+FV6846	                    Tefal FV6846
+EY111B15	                Tefal EY111B
+NA120/00	                Philips NA120/00
+EP5543/80	                Philips EP5543/80
+FV9837E0	                Tefal FV9844
+XB9185/07	                Philips XB9185/07
+дорожный формат	            Braun FS1000
+GV9230E0	                Tefal GV9230
+GV9620E0	                Tefal GV9620
+HD9870/20	                Philips HD9870/20
+SGT9L	                    Samsung Tab A9 Plus
+XP9402/31	                Philips XP9402/31
+CS158-AF	                Cosori CS158-AF
+EP2220/10	                Philips EP2220/10
+EP4446/70	                Philips EP4446/70
+EP5547/90	                Philips EP5547/90
+TFRU28810	                Tefal Xl Surface FW4018
+PBU45215	                Philips DST8040/30
+PSG8160/30	                Philips PSG8160/30
+855G4710G	                Beko MC 5056 I
+77G741G0G	                Beko MC 5251
+TKM 2341	                Beko TKM 2341
+EP5544/80	                Philips EP5544/80
+CEG7348DX	                Beko CEG 7348 X
+BRE247/05	                Philips BRE247/05
+TP517R03	                Siemens TP517R03
+CEG7304X	                Beko CEG 7304 X
+TE655203RW	                Siemens TE655203RW
+TE657319RW	                Siemens TE657319RW
+X9002/30	                Philips X9002/30
+BRI953/01                   Philips BRI953/01
+3-в-1,                      Philips HR3781/20
+GV9820                      Tefal GV9820
+BRI940                      Philips BRI940/00
+PTM32100                    Philips MG3930/15
+FRL 5464 X                  Beko FRL 5464 X
+PCSB47H74                   Philips HR2291/41
+HG44G71G                    Beko BEU 5024 M
+CEP5302B                    BEKO CEP 5302 B
+FV2868                      Tefal FV2868
+7304 X                      BEKO CEG 7304 X
+CEP 5304 X                  BEKO CEP 5304 X
+ECAM290.81                  Delonghi ECAM290.81
+MM 8042 DS                  Beko MM 8042
+FV2844                      Tefal FV2844

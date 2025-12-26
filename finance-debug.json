@@ -1,0 +1,163 @@
+{
+  "posting": {
+    "result": {
+      "operations": [
+        {
+          "operation_id": 42505825162,
+          "operation_type": "OperationAgentDeliveredToCustomer",
+          "operation_date": "2025-12-17 00:00:00",
+          "operation_type_name": "Доставка покупателю",
+          "delivery_charge": 0,
+          "return_delivery_charge": 0,
+          "accruals_for_sale": 54876,
+          "sale_commission": -2743.8,
+          "amount": 52132.2,
+          "type": "orders",
+          "posting": {
+            "delivery_schema": "RFBS",
+            "order_date": "2025-12-01 02:04:50",
+            "posting_number": "75039931-0326-1",
+            "warehouse_id": 1020005000754250
+          },
+          "items": [
+            {
+              "name": "Philips Парогенератор PSG9050/20 3100 Вт 9 Бар с Искусственным Интеллектом, темно-синий",
+              "sku": 1581026393
+            }
+          ],
+          "services": []
+        },
+        {
+          "operation_id": 42505917119,
+          "operation_type": "OperationMarketplaceAgencyFeeAggregator3PLGlobal",
+          "operation_date": "2025-12-17 00:00:00",
+          "operation_type_name": "Агентское вознаграждение за заключение и сопровождение договора транспортно-экспедиционных услуг по организации международной перевозки",
+          "delivery_charge": 0,
+          "return_delivery_charge": 0,
+          "accruals_for_sale": 0,
+          "sale_commission": 0,
+          "amount": -200,
+          "type": "services",
+          "posting": {
+            "delivery_schema": "",
+            "order_date": "2025-12-01 02:04:50",
+            "posting_number": "75039931-0326-1",
+            "warehouse_id": 1020005000754250
+          },
+          "items": [],
+          "services": []
+        },
+        {
+          "operation_id": 42505917120,
+          "operation_type": "MarketplaceRedistributionOfDeliveryServicesOperation",
+          "operation_date": "2025-12-17 00:00:00",
+          "operation_type_name": "Перевыставление услуг доставки",
+          "delivery_charge": 0,
+          "return_delivery_charge": 0,
+          "accruals_for_sale": 0,
+          "sale_commission": 0,
+          "amount": -1940.06,
+          "type": "orders",
+          "posting": {
+            "delivery_schema": "",
+            "order_date": "2025-12-01 02:04:50",
+            "posting_number": "75039931-0326-1",
+            "warehouse_id": 1020005000754250
+          },
+          "items": [],
+          "services": []
+        },
+        {
+          "operation_id": 42714364359,
+          "operation_type": "OperationMarketplaceServicePartialCompensationToClient",
+          "operation_date": "2025-12-21 00:00:00",
+          "operation_type_name": "Частичная компенсация покупателю",
+          "delivery_charge": 0,
+          "return_delivery_charge": 0,
+          "accruals_for_sale": 0,
+          "sale_commission": 0,
+          "amount": -12851,
+          "type": "transfer_delivery",
+          "posting": {
+            "delivery_schema": "RFBS",
+            "order_date": "2025-12-01 02:04:50",
+            "posting_number": "75039931-0326-1",
+            "warehouse_id": 1020005000754250
+          },
+          "items": [],
+          "services": []
+        }
+      ],
+      "page_count": 1,
+      "row_count": 4
+    }
+  },
+  "order": {
+    "result": {
+      "operations": [
+        {
+          "operation_id": 41516146311,
+          "operation_type": "MarketplaceRedistributionOfAcquiringOperation",
+          "operation_date": "2025-12-01 00:00:00",
+          "operation_type_name": "Оплата эквайринга",
+          "delivery_charge": 0,
+          "return_delivery_charge": 0,
+          "accruals_for_sale": 0,
+          "sale_commission": 0,
+          "amount": -976.68,
+          "type": "other",
+          "posting": {
+            "delivery_schema": "",
+            "order_date": "2025-12-01 02:04:50",
+            "posting_number": "75039931-0326",
+            "warehouse_id": 0
+          },
+          "items": [
+            {
+              "name": "Philips Парогенератор PSG9050/20 3100 Вт 9 Бар с Искусственным Интеллектом, темно-синий",
+              "sku": 1581026393
+            }
+          ],
+          "services": [
+            {
+              "name": "MarketplaceRedistributionOfAcquiringOperation",
+              "price": -976.68
+            }
+          ]
+        },
+        {
+          "operation_id": 42715211136,
+          "operation_type": "MarketplaceRedistributionOfAcquiringOperation",
+          "operation_date": "2025-12-21 00:00:00",
+          "operation_type_name": "Оплата эквайринга",
+          "delivery_charge": 0,
+          "return_delivery_charge": 0,
+          "accruals_for_sale": 0,
+          "sale_commission": 0,
+          "amount": 976.68,
+          "type": "other",
+          "posting": {
+            "delivery_schema": "",
+            "order_date": "2025-12-01 02:04:50",
+            "posting_number": "75039931-0326",
+            "warehouse_id": 0
+          },
+          "items": [
+            {
+              "name": "Philips Парогенератор PSG9050/20 3100 Вт 9 Бар с Искусственным Интеллектом, темно-синий",
+              "sku": 1581026393
+            }
+          ],
+          "services": [
+            {
+              "name": "MarketplaceRedistributionOfAcquiringOperation",
+              "price": 976.68
+            }
+          ]
+        }
+      ],
+      "page_count": 1,
+      "row_count": 2
+    }
+  }
+}

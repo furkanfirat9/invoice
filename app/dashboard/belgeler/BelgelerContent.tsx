@@ -774,8 +774,8 @@ export default function BelgelerContent() {
                                                         return (
                                                             <div className="relative group/warn">
                                                                 <span className={`w-6 h-6 flex items-center justify-center text-xs font-bold rounded border ${warnings.length > 1
-                                                                        ? "bg-red-500 text-white border-red-500"
-                                                                        : "bg-amber-500 text-white border-amber-500"
+                                                                    ? "bg-red-500 text-white border-red-500"
+                                                                    : "bg-amber-500 text-white border-amber-500"
                                                                     } animate-pulse cursor-help`}>
                                                                     ⚠
                                                                 </span>
