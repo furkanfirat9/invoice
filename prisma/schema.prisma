@@ -162,3 +162,55 @@ model CancellationTracking {
   updatedAt       DateTime @updatedAt
 }
 
+// Ozon Sipariş Manuel Verileri
+model OzonOrderData {
+  id              String   @id @default(cuid())
+  postingNumber   String   @unique  // Ozon gönderi numarası
+  
+  // Manuel girilen veriler
+  purchasePrice   Float?   // Alış fiyatı (TL)
+  procurementNote String?  // Tedarik notu
+  supplierOrderNo String?  // Tedarikçi sipariş numarası
+  note            String?  // Genel not
+  
+  // Hesaplanan kar verileri (cache)
+  cachedNetProfitTry   Float?    // Net kar TL
+  cachedNetProfitUsd   Float?    // Net kar USD
+  ozonPaymentTry       Float?    // Ozon ödeme TL
+  ozonPaymentUsd       Float?    // Ozon ödeme USD
+  isCancelled          Boolean   @default(false)  // İptal durumu
+  profitCalculatedAt   DateTime? // Son hesaplama zamanı
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Kar Hesaplama Sonuçları (Aylık)
+model ProfitCalculationResult {
+  id              String   @id @default(cuid())
+  
+  // Dönem bilgisi
+  year            Int      // 2025
+  month           Int      // 1-12
+  
+  // Özet veriler
+  processed       Int      // İşlenen sipariş sayısı
+  skippedNoPurchase Int    // Alış fiyatı eksik
+  skippedReturn   Int      // İade/İptal
+  cancelled       Int      // İptal edilen
+  totalProfitTry  Float    // Toplam kar TL
+  totalProfitUsd  Float    // Toplam kar USD
+  cancelledLossTry Float   // İptal zararı TL
+  cancelledLossUsd Float   // İptal zararı USD
+  
+  // Detay verileri (JSON olarak)
+  details         Json     // Tüm sipariş detayları
+  
+  // Kullanıcı
+  userId          String
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([year, month, userId])
+}

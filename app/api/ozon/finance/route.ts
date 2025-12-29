@@ -261,16 +261,20 @@ export async function GET(request: NextRequest) {
             // Hesaplama tarihi geçmişse kurları çek
             const calculationDateObj = new Date(calculationDate);
             if (calculationDateObj < today && totalAmount !== 0) {
-                // RUB/USD kurunu çek (CBR - hesaplama tarihindeki kur)
+                // RUB/USD kurunu çek (CBR - sipariş tarihindeki kur)
+                // Kar hesabı için sipariş tarihindeki kur kullanılmalı
+                // Çünkü ürün sipariş verildiğinde RUB fiyatı sabitlendi
                 try {
-                    const cbrDate = formatDateForCbr(calculationDateObj);
+                    const orderDateObj = new Date(orderDate);
+                    const cbrDate = formatDateForCbr(orderDateObj);
                     rubUsdRate = await getCbrUsdRub(cbrDate);
                 } catch (e) {
                     console.error("[Finance API] CBR rate fetch error:", e);
                     // CBR hata verirse önceki günleri dene
+                    const orderDateObj = new Date(orderDate);
                     for (let i = 1; i <= 5; i++) {
                         try {
-                            const prevDate = new Date(calculationDateObj);
+                            const prevDate = new Date(orderDateObj);
                             prevDate.setDate(prevDate.getDate() - i);
                             const cbrDateRetry = formatDateForCbr(prevDate);
                             rubUsdRate = await getCbrUsdRub(cbrDateRetry);

@@ -11,13 +11,38 @@ import { XMLParser } from 'fast-xml-parser';
 
 const CBR_BASE_URL = "https://www.cbr.ru/scripts/XML_daily.asp";
 
+// In-memory cache for CBR rates (key: date string, value: rate)
+const cbrCache = new Map<string, number>();
+
 /**
- * Rusya Merkez Bankası'ndan USD/RUB kurunu çeker
+ * Cache'den CBR kurunu al veya API'den çekip cache'le
+ */
+export function getCachedCbrRate(date: string): number | undefined {
+  return cbrCache.get(date);
+}
+
+/**
+ * CBR cache'ini temizle
+ */
+export function clearCbrCache(): void {
+  cbrCache.clear();
+}
+
+/**
+ * Rusya Merkez Bankası'ndan USD/RUB kurunu çeker (cache destekli)
  * @param date - 'DD/MM/YYYY' formatında tarih (örn: '16/12/2025') veya undefined (bugün)
  * @returns USD/RUB kuru
  */
 export async function getCbrUsdRub(date?: string): Promise<number> {
-  const url = date 
+  // Cache'de varsa direkt döndür
+  const cacheKey = date || 'today';
+  const cachedRate = cbrCache.get(cacheKey);
+  if (cachedRate !== undefined) {
+    console.log(`[CBR] Cache hit: ${cacheKey} = ${cachedRate}`);
+    return cachedRate;
+  }
+
+  const url = date
     ? `${CBR_BASE_URL}?date_req=${date}`
     : CBR_BASE_URL;
 
@@ -51,8 +76,13 @@ export async function getCbrUsdRub(date?: string): Promise<number> {
   const nominal = parseInt(usdValute.Nominal) || 1;
   const valueStr = String(usdValute.Value).replace(",", ".");
   const value = parseFloat(valueStr);
+  const rate = value / nominal;
 
-  return value / nominal;
+  // Cache'e kaydet
+  cbrCache.set(cacheKey, rate);
+  console.log(`[CBR] Fetched and cached: ${cacheKey} = ${rate}`);
+
+  return rate;
 }
 
 // ============================================
