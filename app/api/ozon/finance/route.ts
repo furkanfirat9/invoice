@@ -258,12 +258,10 @@ export async function GET(request: NextRequest) {
             const paymentDateObj = new Date(paymentDate);
             isPaid = paymentDateObj < today;
 
-            // Hesaplama tarihi geçmişse kurları çek
-            const calculationDateObj = new Date(calculationDate);
-            if (calculationDateObj < today && totalAmount !== 0) {
+            // USD hesaplaması: Teslim edildiyse ve totalAmount varsa hemen hesapla
+            // (hesaplama tarihini beklemeye gerek yok, RUB/USD sipariş tarihinden alınıyor)
+            if (totalAmount !== 0 && orderDate) {
                 // RUB/USD kurunu çek (CBR - sipariş tarihindeki kur)
-                // Kar hesabı için sipariş tarihindeki kur kullanılmalı
-                // Çünkü ürün sipariş verildiğinde RUB fiyatı sabitlendi
                 try {
                     const orderDateObj = new Date(orderDate);
                     const cbrDate = formatDateForCbr(orderDateObj);
@@ -285,32 +283,37 @@ export async function GET(request: NextRequest) {
                     }
                 }
 
-                // USD/TRY kurunu çek (TCMB - ödeme tarihindeki kur)
-                try {
-                    const tcmbDate = formatDateForTcmb(paymentDateObj);
-                    usdTryRate = await getTcmbUsdTry(tcmbDate);
-                } catch (e) {
-                    console.error("[Finance API] TCMB rate fetch error:", e);
-                    // TCMB hata verirse önceki günleri dene (hafta sonu/tatil)
-                    for (let i = 1; i <= 5; i++) {
-                        try {
-                            const prevDate = new Date(paymentDateObj);
-                            prevDate.setDate(prevDate.getDate() - i);
-                            const tcmbDateRetry = formatDateForTcmb(prevDate);
-                            usdTryRate = await getTcmbUsdTry(tcmbDateRetry);
-                            break;
-                        } catch (retryErr) {
-                            // devam et
-                        }
-                    }
-                }
-
-                // Tutarları hesapla
+                // USD tutarını hesapla (hemen)
                 if (rubUsdRate && rubUsdRate > 0) {
                     amountUsd = totalAmount / rubUsdRate;
                 }
-                if (usdTryRate && usdTryRate > 0 && amountUsd !== null) {
-                    amountTry = amountUsd * usdTryRate;
+
+                // TL hesaplaması: Sadece ödeme tarihi geçtiyse
+                if (isPaid && amountUsd !== null) {
+                    // USD/TRY kurunu çek (TCMB - ödeme tarihindeki kur)
+                    try {
+                        const tcmbDate = formatDateForTcmb(paymentDateObj);
+                        usdTryRate = await getTcmbUsdTry(tcmbDate);
+                    } catch (e) {
+                        console.error("[Finance API] TCMB rate fetch error:", e);
+                        // TCMB hata verirse önceki günleri dene (hafta sonu/tatil)
+                        for (let i = 1; i <= 5; i++) {
+                            try {
+                                const prevDate = new Date(paymentDateObj);
+                                prevDate.setDate(prevDate.getDate() - i);
+                                const tcmbDateRetry = formatDateForTcmb(prevDate);
+                                usdTryRate = await getTcmbUsdTry(tcmbDateRetry);
+                                break;
+                            } catch (retryErr) {
+                                // devam et
+                            }
+                        }
+                    }
+
+                    // TL tutarını hesapla (sadece ödeme tarihi geçtiyse)
+                    if (usdTryRate && usdTryRate > 0) {
+                        amountTry = amountUsd * usdTryRate;
+                    }
                 }
             }
         }

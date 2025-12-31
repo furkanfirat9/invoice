@@ -272,6 +272,7 @@ interface SidePanelProps {
   order: Order | null;
   onClose: () => void;
   onSave: (orderId: string, field: string, value: string | null) => void;
+  liveUsdTryRate?: number; // Canlı USD/TRY kuru
 }
 
 interface FinanceData {
@@ -298,7 +299,7 @@ interface FinanceData {
   };
 }
 
-function SidePanel({ order, onClose, onSave }: SidePanelProps) {
+function SidePanel({ order, onClose, onSave, liveUsdTryRate }: SidePanelProps) {
   const [noteValue, setNoteValue] = useState(order?.note || "");
   const [supplierOrderNoValue, setSupplierOrderNoValue] = useState(order?.supplierOrderNo || "");
   const [financeData, setFinanceData] = useState<FinanceData | null>(null);
@@ -521,7 +522,7 @@ function SidePanel({ order, onClose, onSave }: SidePanelProps) {
                   </div>
 
                   {/* Alış Fiyatı ve Net Kar */}
-                  {order.purchasePrice && financeData.payment.amountTry !== null && (
+                  {order.purchasePrice && financeData.payment.amountUsd !== null && (
                     <>
                       <div className="flex justify-between mt-2 pt-2 border-t border-gray-200">
                         <span className="text-sm text-gray-500">Alış Fiyatı</span>
@@ -529,37 +530,52 @@ function SidePanel({ order, onClose, onSave }: SidePanelProps) {
                           -₺{order.purchasePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                         </span>
                       </div>
+
+                      {/* Net Kar TL */}
                       <div className="flex justify-between">
                         <span className="text-sm font-semibold text-gray-700">Net Kar (TL)</span>
-                        <span className={`text-sm font-bold ${(financeData.payment.amountTry - order.purchasePrice) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {(financeData.payment.amountTry - order.purchasePrice) >= 0 ? '+' : ''}
-                          ₺{(financeData.payment.amountTry - order.purchasePrice).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                      {/* Net Kar USD */}
-                      {financeData.payment.usdTryRate && (
-                        <div className="flex justify-between">
-                          <span className="text-sm font-semibold text-gray-700">Net Kar (USD)</span>
-                          <span className={`text-sm font-bold ${((financeData.payment.amountTry - order.purchasePrice) / financeData.payment.usdTryRate) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                            {((financeData.payment.amountTry - order.purchasePrice) / financeData.payment.usdTryRate) >= 0 ? '+' : ''}
-                            ${((financeData.payment.amountTry - order.purchasePrice) / financeData.payment.usdTryRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {financeData.payment.amountTry !== null ? (
+                          <span className={`text-sm font-bold ${(financeData.payment.amountTry - order.purchasePrice) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {(financeData.payment.amountTry - order.purchasePrice) >= 0 ? '+' : ''}
+                            ₺{(financeData.payment.amountTry - order.purchasePrice).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                           </span>
-                        </div>
-                      )}
+                        ) : (
+                          <span className="text-sm text-amber-500">⏳ Ödeme günü bekleniyor</span>
+                        )}
+                      </div>
+
+                      {/* Net Kar USD - Hemen hesaplanır */}
+                      <div className="flex justify-between">
+                        <span className="text-sm font-semibold text-gray-700">Net Kar (USD)</span>
+                        {(() => {
+                          // TCMB kuru varsa onu kullan, yoksa canlı kur, o da yoksa 35
+                          const rate = financeData.payment.usdTryRate || liveUsdTryRate || 35;
+                          const purchasePriceUsd = order.purchasePrice / rate;
+                          const netProfitUsd = financeData.payment.amountUsd - purchasePriceUsd;
+                          return (
+                            <span className={`text-sm font-bold ${netProfitUsd >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {netProfitUsd >= 0 ? '+' : ''}
+                              ${netProfitUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </>
                   )}
 
                   {/* Kullanılan Kurlar */}
-                  {(financeData.payment.rubUsdRate || financeData.payment.usdTryRate) && (
+                  {(financeData.payment.rubUsdRate || financeData.payment.usdTryRate || liveUsdTryRate) && (
                     <div className="mt-2 pt-2 border-t border-dashed border-gray-200">
                       <p className="text-xs text-gray-400 italic text-right">
                         {financeData.payment.rubUsdRate && (
                           <>USD/RUB: {financeData.payment.rubUsdRate.toFixed(2)} ({new Date(financeData.orderDate).toLocaleDateString("tr-TR")})</>
                         )}
-                        {financeData.payment.rubUsdRate && financeData.payment.usdTryRate && ' • '}
-                        {financeData.payment.usdTryRate && (
+                        {financeData.payment.rubUsdRate && (financeData.payment.usdTryRate || liveUsdTryRate) && ' • '}
+                        {financeData.payment.usdTryRate ? (
                           <>USD/TRY: {financeData.payment.usdTryRate.toFixed(2)} ({new Date(financeData.payment.paymentDate).toLocaleDateString("tr-TR")})</>
-                        )}
+                        ) : liveUsdTryRate && financeData.payment.amountTry === null ? (
+                          <>USD/TRY: {liveUsdTryRate.toFixed(2)} (canlı)</>
+                        ) : null}
                       </p>
                     </div>
                   )}
@@ -773,6 +789,7 @@ export default function SiparislerPage() {
     totalProfitUsd: number;
     cancelledLossTry: number;
     cancelledLossUsd: number;
+    pendingPaymentCount?: number; // Ödeme günü beklenen sipariş sayısı
     details: Array<{
       postingNumber: string;
       productName?: string;
@@ -782,6 +799,7 @@ export default function SiparislerPage() {
       netProfitTry: number;
       netProfitUsd: number;
       isCancelled: boolean;
+      isPendingPayment?: boolean; // Ödeme günü bekleniyor mu?
       orderDate?: string;
       deliveryDate?: string;
       calculationDate?: string;
@@ -847,7 +865,12 @@ export default function SiparislerPage() {
       const res = await fetch("/api/ozon/orders/calculate-profit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postingNumbers, year: selectedYear, month: selectedMonth }),
+        body: JSON.stringify({
+          postingNumbers,
+          year: selectedYear,
+          month: selectedMonth,
+          liveUsdTryRate: liveRate  // Canlı kuru API'ye gönder
+        }),
       });
 
       const result = await res.json();
@@ -1227,7 +1250,7 @@ export default function SiparislerPage() {
 
         {/* Butonlar */}
         <div className="flex items-center gap-2">
-          {/* Excel Import */}
+          {/* Excel Import - Gizlendi
           <input
             ref={fileInputRef}
             type="file"
@@ -1258,6 +1281,7 @@ export default function SiparislerPage() {
               </>
             )}
           </button>
+          */}
 
           {/* Kar Hesapla */}
           <button
@@ -1357,11 +1381,15 @@ export default function SiparislerPage() {
                   <p className={`text-xl font-bold ${stats.cachedProfitUsd >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                     {stats.cachedProfitUsd >= 0 ? "+" : ""}${stats.cachedProfitUsd.toFixed(2)}
                   </p>
-                  {stats.cachedProfitTry !== 0 && (
+                  {stats.cachedProfitTry !== 0 ? (
                     <p className={`text-xs ${stats.cachedProfitTry >= 0 ? "text-emerald-500" : "text-red-400"}`}>
                       {stats.cachedProfitTry >= 0 ? "+" : ""}{stats.cachedProfitTry.toLocaleString("tr-TR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ₺
                     </p>
-                  )}
+                  ) : profitResults?.pendingPaymentCount && profitResults.pendingPaymentCount > 0 ? (
+                    <p className="text-xs text-amber-500">
+                      ⏳ {profitResults.pendingPaymentCount} sipariş ödeme bekliyor
+                    </p>
+                  ) : null}
                 </>
               ) : (
                 <p className="text-sm text-gray-400">Hesaplanmadı</p>
@@ -1369,6 +1397,7 @@ export default function SiparislerPage() {
             </div>
           </div>
         </div>
+
 
         {/* İptaller */}
         <div
@@ -1543,6 +1572,7 @@ export default function SiparislerPage() {
         order={selectedOrder}
         onClose={() => setSelectedOrder(null)}
         onSave={(orderId: string, field: string, value: string | null) => updateOrder(orderId, field as keyof Order, value)}
+        liveUsdTryRate={liveRate}
       />
 
       {/* Kar Hesaplama Sonuçları Modal */}
@@ -1581,12 +1611,24 @@ export default function SiparislerPage() {
                   <span>İade/İptal:</span>
                   <span className="font-bold text-red-600">{profitResults.skippedReturn || 0}</span>
                 </div>
+                {profitResults.pendingPaymentCount && profitResults.pendingPaymentCount > 0 && (
+                  <div className="flex justify-between items-center text-xs text-gray-500">
+                    <span>Ödeme Bekliyor:</span>
+                    <span className="font-bold text-amber-500">⏳ {profitResults.pendingPaymentCount}</span>
+                  </div>
+                )}
               </div>
               <div className="bg-white rounded-xl p-4 shadow-sm">
                 <p className="text-sm text-gray-500">Toplam Kar (TL)</p>
-                <p className={`text-2xl font-bold ${profitResults.totalProfitTry >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  ₺{profitResults.totalProfitTry.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                </p>
+                {profitResults.totalProfitTry !== 0 ? (
+                  <p className={`text-2xl font-bold ${profitResults.totalProfitTry >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    ₺{profitResults.totalProfitTry.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                  </p>
+                ) : profitResults.pendingPaymentCount && profitResults.pendingPaymentCount > 0 ? (
+                  <p className="text-lg text-amber-500">⏳ Ödeme günü bekleniyor</p>
+                ) : (
+                  <p className="text-2xl font-bold text-gray-400">₺0.00</p>
+                )}
               </div>
               <div className="bg-white rounded-xl p-4 shadow-sm">
                 <p className="text-sm text-gray-500">Toplam Kar (USD)</p>
@@ -1659,8 +1701,14 @@ export default function SiparislerPage() {
                       </td>
                       <td className="px-3 py-3 text-center">${item.ozonPaymentUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                       <td className="px-3 py-3 text-center text-orange-600">₺{item.purchasePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</td>
-                      <td className={`px-3 py-3 text-center font-medium ${item.netProfitTry >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {item.netProfitTry >= 0 ? '+' : ''}₺{item.netProfitTry.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                      <td className="px-3 py-3 text-center">
+                        {item.isPendingPayment ? (
+                          <span className="text-amber-500 text-xs">⏳ Bekliyor</span>
+                        ) : (
+                          <span className={`font-medium ${item.netProfitTry >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {item.netProfitTry >= 0 ? '+' : ''}₺{item.netProfitTry.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
                       </td>
                       <td className={`px-3 py-3 text-center font-medium ${item.netProfitUsd >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {item.netProfitUsd >= 0 ? '+' : ''}${item.netProfitUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}

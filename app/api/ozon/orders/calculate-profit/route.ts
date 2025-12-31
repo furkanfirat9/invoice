@@ -14,6 +14,7 @@ interface ProfitDetail {
     netProfitUsd: number;
     usdTryRate: number;
     isCancelled: boolean;
+    isPendingPayment?: boolean; // Ödeme günü bekleniyor mu?
     // Tarihler
     orderDate?: string;      // Kargoya verilme tarihi (sipariş tarihi)
     deliveryDate?: string;   // Teslim tarihi
@@ -23,6 +24,7 @@ interface ProfitDetail {
     error?: string;
 }
 
+
 export async function POST(request: NextRequest) {
     try {
         // Oturum kontrolü
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Oturum gerekli" }, { status: 401 });
         }
 
-        const { postingNumbers, year, month } = await request.json();
+        const { postingNumbers, year, month, liveUsdTryRate } = await request.json();
 
         if (!postingNumbers?.length) {
             return NextResponse.json({ error: "postingNumbers gerekli" }, { status: 400 });
@@ -40,6 +42,9 @@ export async function POST(request: NextRequest) {
         if (!year || !month) {
             return NextResponse.json({ error: "year ve month gerekli" }, { status: 400 });
         }
+
+        // Canlı kur yoksa 35 fallback
+        const fallbackRate = liveUsdTryRate || 35;
 
         // Veritabanından mevcut sipariş verilerini al
         const existingData = await prisma.ozonOrderData.findMany({
@@ -137,11 +142,14 @@ export async function POST(request: NextRequest) {
                     continue;
                 }
 
-                // amountTry: Yan paneldeki Net Ödeme (TL) değeri
+                // amountUsd ve amountTry değerlerini al
+                const ozonPaymentUsd = financeData.payment?.amountUsd;
                 const ozonPaymentTry = financeData.payment?.amountTry;
-                const usdTryRate = financeData.payment?.usdTryRate || 35;
+                const usdTryRate = financeData.payment?.usdTryRate;
+                const isPaid = financeData.payment?.isPaid || false;
 
-                if (ozonPaymentTry === null || ozonPaymentTry === undefined) {
+                // USD ödeme bilgisi yoksa atla (teslim edilmemiş olabilir)
+                if (ozonPaymentUsd === null || ozonPaymentUsd === undefined) {
                     results.push({
                         postingNumber,
                         ozonPaymentTry: 0,
@@ -151,15 +159,31 @@ export async function POST(request: NextRequest) {
                         netProfitUsd: 0,
                         usdTryRate: 0,
                         isCancelled: false,
-                        error: "Ödeme bilgisi henüz mevcut değil"
+                        isPendingPayment: false,
+                        error: "Finansal veri henüz mevcut değil"
                     });
                     continue;
                 }
 
-                // Net kar hesapla (yan panel ile birebir aynı)
-                const netProfitTry = ozonPaymentTry - orderData.purchasePrice;
-                const netProfitUsd = netProfitTry / usdTryRate;
-                const ozonPaymentUsd = ozonPaymentTry / usdTryRate;
+                // Alış fiyatını USD'ye çevir (sipariş tarihindeki kurla)
+                // financeData'dan sipariş tarihindeki USD/TRY kuruyla hesapla
+                // Şimdilik alış fiyatı için ödeme tarihindeki veya canlı kuru kullan
+                const purchasePriceForUsdCalc = orderData.purchasePrice;
+
+                // Net kar USD hesapla (hemen - teslim sonrası)
+                // USD Kar = Ozon Ödeme (USD) - (Alış TL / USD-TRY kur)
+                // TCMB kuru varsa onu kullan, yoksa canlı kur (frontend'den gelen)
+                const rateForPurchase = usdTryRate || fallbackRate;
+                const purchasePriceUsd = purchasePriceForUsdCalc / rateForPurchase;
+                const netProfitUsd = ozonPaymentUsd - purchasePriceUsd;
+
+                // TL kar (sadece ödeme tarihi geçtiyse)
+                let netProfitTry: number | null = null;
+                const isPendingPayment = !isPaid;
+
+                if (ozonPaymentTry !== null && ozonPaymentTry !== undefined) {
+                    netProfitTry = ozonPaymentTry - orderData.purchasePrice;
+                }
 
                 // İptal kontrolü
                 const isCancelled = orderData.isCancelled || false;
@@ -170,7 +194,7 @@ export async function POST(request: NextRequest) {
                     data: {
                         cachedNetProfitTry: netProfitTry,
                         cachedNetProfitUsd: netProfitUsd,
-                        ozonPaymentTry,
+                        ozonPaymentTry: ozonPaymentTry || null,
                         ozonPaymentUsd,
                         isCancelled,
                         profitCalculatedAt: new Date(),
@@ -181,13 +205,14 @@ export async function POST(request: NextRequest) {
                 results.push({
                     postingNumber,
                     productName: financeData.productName || undefined,
-                    ozonPaymentTry,
+                    ozonPaymentTry: ozonPaymentTry || 0,
                     ozonPaymentUsd,
                     purchasePrice: orderData.purchasePrice,
-                    netProfitTry,
+                    netProfitTry: netProfitTry || 0,
                     netProfitUsd,
-                    usdTryRate,
+                    usdTryRate: usdTryRate || 0,
                     isCancelled,
+                    isPendingPayment,
                     // Tarihler (Finance API'den)
                     orderDate: financeData.orderDate || undefined,
                     deliveryDate: financeData.deliveryDate || undefined,
@@ -199,9 +224,9 @@ export async function POST(request: NextRequest) {
 
                 if (isCancelled) {
                     cancelled++;
-                    cancelledLossTry += netProfitTry;
+                    cancelledLossTry += netProfitTry || 0;
                 } else {
-                    totalProfitTry += netProfitTry;
+                    totalProfitTry += netProfitTry || 0;
                 }
 
                 // Rate limiting - her istektan sonra kısa bekle
@@ -232,11 +257,17 @@ export async function POST(request: NextRequest) {
                 return dateA - dateB;
             });
 
-        const avgUsdTryRate = results.filter(r => r.usdTryRate > 0).reduce((sum, r) => sum + r.usdTryRate, 0) /
-            (results.filter(r => r.usdTryRate > 0).length || 1);
+        // Ödeme günü beklenen sipariş sayısı
+        const pendingPaymentCount = results.filter(r => r.isPendingPayment && !r.error).length;
 
-        const totalProfitUsd = totalProfitTry / avgUsdTryRate;
-        const cancelledLossUsd = cancelledLossTry / avgUsdTryRate;
+        // USD kar toplamını doğrudan netProfitUsd'dan hesapla (iptal hariç)
+        const totalProfitUsd = sortedResults
+            .filter(r => !r.isCancelled)
+            .reduce((sum, r) => sum + r.netProfitUsd, 0);
+
+        const cancelledLossUsd = sortedResults
+            .filter(r => r.isCancelled)
+            .reduce((sum, r) => sum + r.netProfitUsd, 0);
 
         // Sonuçları veritabanına kaydet (upsert - varsa güncelle, yoksa oluştur)
         await prisma.profitCalculationResult.upsert({
@@ -280,6 +311,7 @@ export async function POST(request: NextRequest) {
             skippedNoPurchase,
             skippedReturn,
             cancelled,
+            pendingPaymentCount,
             totalProfitTry,
             totalProfitUsd,
             cancelledLossTry,
@@ -288,6 +320,7 @@ export async function POST(request: NextRequest) {
             details: sortedResults,
             errors: results.filter(r => r.error),
         });
+
     } catch (error: any) {
         console.error("[Calculate Profit] Hata:", error);
         return NextResponse.json(
