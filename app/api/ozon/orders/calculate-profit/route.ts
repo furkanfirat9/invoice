@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
                 // İptal kontrolü
                 const isCancelled = orderData.isCancelled || false;
 
-                // Veritabanına kaydet
+                // Veritabanına kaydet (deliveryDate dahil)
                 await prisma.ozonOrderData.update({
                     where: { postingNumber },
                     data: {
@@ -198,6 +198,7 @@ export async function POST(request: NextRequest) {
                         ozonPaymentUsd,
                         isCancelled,
                         profitCalculatedAt: new Date(),
+                        deliveryDate: financeData.deliveryDate ? new Date(financeData.deliveryDate) : null,
                     },
                 });
 

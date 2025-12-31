@@ -356,6 +356,7 @@ export async function GET(request: NextRequest) {
                 // Cache alanları
                 cachedNetProfitUsd: savedData?.cachedNetProfitUsd ?? null,
                 cachedNetProfitTry: savedData?.cachedNetProfitTry ?? null,
+                ozonPaymentUsd: savedData?.ozonPaymentUsd ?? null, // Ozon ödemesi (USD)
                 isCancelled: savedData?.isCancelled ?? false,
                 profitCalculatedAt: savedData?.profitCalculatedAt?.toISOString() ?? null,
             };

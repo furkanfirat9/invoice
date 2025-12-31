@@ -29,6 +29,7 @@ interface Order {
   // Cache alanları
   cachedNetProfitUsd?: number | null; // Cache'lenmiş net kar USD
   cachedNetProfitTry?: number | null; // Cache'lenmiş net kar TL
+  ozonPaymentUsd?: number | null; // Ozon'dan gelecek ödeme (USD)
   isCancelled?: boolean; // İptal durumu
   profitCalculatedAt?: string | null; // Son hesaplama zamanı
 }
@@ -716,6 +717,24 @@ export default function SiparislerPage() {
   // Ayın 15'i için USD/TRY kuru (TCMB'den)
   const [midMonthRate, setMidMonthRate] = useState<number | null>(null);
 
+  // Ödeme tahminleri state
+  const [paymentForecast, setPaymentForecast] = useState<{
+    payment16th: {
+      label: string;
+      periodLabel: string;
+      isPast: boolean;
+      orderCount: number;
+      totalUsd: number;
+    };
+    payment1st: {
+      label: string;
+      periodLabel: string;
+      isPast: boolean;
+      orderCount: number;
+      totalUsd: number;
+    };
+  } | null>(null);
+
   // Cache helper fonksiyonları
   const getCacheKey = (year: number, month: number) => `ozon_orders_${year}_${month}`;
 
@@ -880,6 +899,8 @@ export default function SiparislerPage() {
         setShowProfitModal(true);
         // Verileri yenile (cache'i bypass et)
         fetchOrders(true);
+        // Ödeme tahminlerini de yenile
+        fetchPaymentForecast();
       } else {
         alert(`❌ Hata: ${result.error}`);
       }
@@ -889,6 +910,27 @@ export default function SiparislerPage() {
       setIsCalculatingProfit(false);
     }
   };
+
+  // Ödeme tahminlerini çek
+  const fetchPaymentForecast = async () => {
+    try {
+      const res = await fetch('/api/ozon/orders/payment-forecast');
+      const data = await res.json();
+      if (data.success) {
+        setPaymentForecast({
+          payment16th: data.payment16th,
+          payment1st: data.payment1st,
+        });
+      }
+    } catch (err) {
+      console.error('Ödeme tahmini çekilemedi:', err);
+    }
+  };
+
+  // Sayfa yüklendiğinde ödeme tahminlerini çek
+  useEffect(() => {
+    fetchPaymentForecast();
+  }, []);
 
   // Ay isimleri
   const MONTHS = [
@@ -1439,6 +1481,69 @@ export default function SiparislerPage() {
           </div>
         </div>
       </div>
+
+      {/* Gelecek Ödemeler Kartları */}
+      {paymentForecast && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 16'sı Ödemesi */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm border border-blue-100 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    📅 {paymentForecast.payment16th.label} Ödemesi
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {paymentForecast.payment16th.periodLabel}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className={`text-2xl font-bold ${paymentForecast.payment16th.totalUsd > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                  ${paymentForecast.payment16th.totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {paymentForecast.payment16th.orderCount} sipariş {paymentForecast.payment16th.isPast ? '✓' : '⏳'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 1'i Ödemesi */}
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm border border-purple-100 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    📅 {paymentForecast.payment1st.label} Ödemesi
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {paymentForecast.payment1st.periodLabel}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className={`text-2xl font-bold ${paymentForecast.payment1st.totalUsd > 0 ? 'text-purple-600' : 'text-gray-400'}`}>
+                  ${paymentForecast.payment1st.totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {paymentForecast.payment1st.orderCount} sipariş ⏳
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
 
 

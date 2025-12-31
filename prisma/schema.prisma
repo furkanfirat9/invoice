@@ -180,6 +180,7 @@ model OzonOrderData {
   ozonPaymentUsd       Float?    // Ozon ödeme USD
   isCancelled          Boolean   @default(false)  // İptal durumu
   profitCalculatedAt   DateTime? // Son hesaplama zamanı
+  deliveryDate         DateTime? // Teslim tarihi (ödeme hesaplaması için)
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
