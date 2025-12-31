@@ -725,6 +725,7 @@ export default function SiparislerPage() {
       isPast: boolean;
       orderCount: number;
       totalUsd: number;
+      totalRub: number;
     };
     payment1st: {
       label: string;
@@ -732,6 +733,7 @@ export default function SiparislerPage() {
       isPast: boolean;
       orderCount: number;
       totalUsd: number;
+      totalRub: number;
     };
   } | null>(null);
 
@@ -1507,6 +1509,9 @@ export default function SiparislerPage() {
                 <p className={`text-2xl font-bold ${paymentForecast.payment16th.totalUsd > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
                   ${paymentForecast.payment16th.totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </p>
+                <p className="text-sm text-gray-500">
+                  ₽{paymentForecast.payment16th.totalRub.toLocaleString('ru-RU', { minimumFractionDigits: 0 })}
+                </p>
                 <p className="text-xs text-gray-400">
                   {paymentForecast.payment16th.orderCount} sipariş {paymentForecast.payment16th.isPast ? '✓' : '⏳'}
                 </p>
@@ -1535,6 +1540,9 @@ export default function SiparislerPage() {
               <div className="text-right">
                 <p className={`text-2xl font-bold ${paymentForecast.payment1st.totalUsd > 0 ? 'text-purple-600' : 'text-gray-400'}`}>
                   ${paymentForecast.payment1st.totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm text-gray-500">
+                  ₽{paymentForecast.payment1st.totalRub.toLocaleString('ru-RU', { minimumFractionDigits: 0 })}
                 </p>
                 <p className="text-xs text-gray-400">
                   {paymentForecast.payment1st.orderCount} sipariş ⏳

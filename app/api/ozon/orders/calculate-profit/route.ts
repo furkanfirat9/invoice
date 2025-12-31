@@ -143,6 +143,7 @@ export async function POST(request: NextRequest) {
                 }
 
                 // amountUsd ve amountTry değerlerini al
+                const ozonPaymentRub = financeData.payment?.totalAmount; // Orijinal RUB tutarı
                 const ozonPaymentUsd = financeData.payment?.amountUsd;
                 const ozonPaymentTry = financeData.payment?.amountTry;
                 const usdTryRate = financeData.payment?.usdTryRate;
@@ -188,12 +189,13 @@ export async function POST(request: NextRequest) {
                 // İptal kontrolü
                 const isCancelled = orderData.isCancelled || false;
 
-                // Veritabanına kaydet (deliveryDate dahil)
+                // Veritabanına kaydet (deliveryDate ve RUB dahil)
                 await prisma.ozonOrderData.update({
                     where: { postingNumber },
                     data: {
                         cachedNetProfitTry: netProfitTry,
                         cachedNetProfitUsd: netProfitUsd,
+                        ozonPaymentRub: ozonPaymentRub || null, // Orijinal RUB tutarı
                         ozonPaymentTry: ozonPaymentTry || null,
                         ozonPaymentUsd,
                         isCancelled,

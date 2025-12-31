@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
             },
             select: {
                 postingNumber: true,
+                ozonPaymentRub: true,
                 ozonPaymentUsd: true,
                 deliveryDate: true,
             },
@@ -61,14 +62,17 @@ export async function GET(request: NextRequest) {
             },
             select: {
                 postingNumber: true,
+                ozonPaymentRub: true,
                 ozonPaymentUsd: true,
                 deliveryDate: true,
             },
         });
 
         // Toplam ödemeleri hesapla
-        const payment16thTotal = orders16th.reduce((sum, o) => sum + (o.ozonPaymentUsd || 0), 0);
-        const payment1stTotal = orders1st.reduce((sum, o) => sum + (o.ozonPaymentUsd || 0), 0);
+        const payment16thTotalUsd = orders16th.reduce((sum, o) => sum + (o.ozonPaymentUsd || 0), 0);
+        const payment16thTotalRub = orders16th.reduce((sum, o) => sum + (o.ozonPaymentRub || 0), 0);
+        const payment1stTotalUsd = orders1st.reduce((sum, o) => sum + (o.ozonPaymentUsd || 0), 0);
+        const payment1stTotalRub = orders1st.reduce((sum, o) => sum + (o.ozonPaymentRub || 0), 0);
 
         const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
             'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -84,7 +88,8 @@ export async function GET(request: NextRequest) {
                 paymentDate: payment16thDate.toISOString(),
                 isPast: currentDay > 15,
                 orderCount: orders16th.length,
-                totalUsd: payment16thTotal,
+                totalUsd: payment16thTotalUsd,
+                totalRub: payment16thTotalRub,
             },
             payment1st: {
                 label: `1 ${monthNames[(currentMonth + 1) % 12]}`,
@@ -94,7 +99,8 @@ export async function GET(request: NextRequest) {
                 paymentDate: payment1stDate.toISOString(),
                 isPast: false,
                 orderCount: orders1st.length,
-                totalUsd: payment1stTotal,
+                totalUsd: payment1stTotalUsd,
+                totalRub: payment1stTotalRub,
             },
         });
 

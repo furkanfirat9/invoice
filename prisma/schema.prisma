@@ -176,6 +176,7 @@ model OzonOrderData {
   // Hesaplanan kar verileri (cache)
   cachedNetProfitTry   Float?    // Net kar TL
   cachedNetProfitUsd   Float?    // Net kar USD
+  ozonPaymentRub       Float?    // Ozon ödeme RUB (orijinal)
   ozonPaymentTry       Float?    // Ozon ödeme TL
   ozonPaymentUsd       Float?    // Ozon ödeme USD
   isCancelled          Boolean   @default(false)  // İptal durumu
