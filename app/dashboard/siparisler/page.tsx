@@ -1058,11 +1058,39 @@ export default function SiparislerPage() {
     return null;
   }
 
-  // Sipariş güncelleme fonksiyonu
-  const updateOrder = (orderId: string, field: keyof Order, value: any) => {
-    setOrders(prev => prev.map(order =>
-      order.id === orderId ? { ...order, [field]: value } : order
-    ));
+  // Sipariş güncelleme fonksiyonu (API'ye kaydeder)
+  const updateOrder = async (orderId: string, field: keyof Order, value: any) => {
+    // Önce local state'i güncelle (hızlı UI yanıtı için)
+    setOrders(prev => {
+      const updatedOrders = prev.map(order =>
+        order.id === orderId ? { ...order, [field]: value } : order
+      );
+      // Cache'i de güncelle
+      saveToCache(selectedYear, selectedMonth, updatedOrders);
+      return updatedOrders;
+    });
+
+    // API'ye kaydet (orderId aslında postingNumber)
+    try {
+      const response = await fetch('/api/ozon/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postingNumber: orderId,
+          [field]: value,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Kaydetme hatası:', errorData);
+        // Hata durumunda eski değere geri dön (isteğe bağlı)
+      } else {
+        console.log(`✅ ${field} kaydedildi: ${orderId}`);
+      }
+    } catch (error) {
+      console.error('API kaydetme hatası:', error);
+    }
   };
 
   // Canlı kur (Coinbase'den gelen)
