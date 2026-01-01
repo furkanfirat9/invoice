@@ -20,16 +20,18 @@ export async function GET(request: NextRequest) {
         const currentMonth = today.getMonth();
         const currentYear = today.getFullYear();
 
-        // Ödeme dönemleri hesapla
-        // Kart 1: 16'sı ödemesi (1-15 arası teslimlerin ödemesi)
+        // Ödeme dönemleri hesapla - MEVCUT AY içinde yapılacak ödemeler
+        // Kart 1: 1'i ödemesi (ÖNCEKI ayın 16-ay sonu teslimleri)
+        const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+        const payment1stStart = new Date(prevYear, prevMonth, 16, 0, 0, 0);
+        const payment1stEnd = new Date(prevYear, prevMonth + 1, 0, 23, 59, 59); // Önceki ayın son günü
+        const payment1stDate = new Date(currentYear, currentMonth, 1);
+
+        // Kart 2: 16'sı ödemesi (MEVCUT ayın 1-15 arası teslimleri)
         const payment16thStart = new Date(currentYear, currentMonth, 1, 0, 0, 0);
         const payment16thEnd = new Date(currentYear, currentMonth, 15, 23, 59, 59);
         const payment16thDate = new Date(currentYear, currentMonth, 16);
-
-        // Kart 2: 1'i ödemesi (16-ay sonu teslimlerin ödemesi)
-        const payment1stStart = new Date(currentYear, currentMonth, 16, 0, 0, 0);
-        const payment1stEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59); // Ayın son günü
-        const payment1stDate = new Date(currentYear, currentMonth + 1, 1);
 
         // Veritabanından teslim tarihine göre siparişleri çek
         // Payment 16th: 1-15 arası teslimleri
@@ -80,6 +82,19 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             success: true,
             today: today.toISOString(),
+            // Kart 1: Bu ayın 1'i ödemesi (geçen ayın 16-31 teslimleri)
+            payment1st: {
+                label: `1 ${monthNames[currentMonth]}`,
+                periodLabel: `16-${payment1stEnd.getDate()} ${monthNames[prevMonth]} teslimleri`,
+                start: payment1stStart.toISOString(),
+                end: payment1stEnd.toISOString(),
+                paymentDate: payment1stDate.toISOString(),
+                isPast: currentDay >= 1, // 1'i geçtiyse ödeme yapılmış
+                orderCount: orders1st.length,
+                totalUsd: payment1stTotalUsd,
+                totalRub: payment1stTotalRub,
+            },
+            // Kart 2: Bu ayın 16'sı ödemesi (bu ayın 1-15 teslimleri)
             payment16th: {
                 label: `16 ${monthNames[currentMonth]}`,
                 periodLabel: `1-15 ${monthNames[currentMonth]} teslimleri`,
@@ -90,17 +105,6 @@ export async function GET(request: NextRequest) {
                 orderCount: orders16th.length,
                 totalUsd: payment16thTotalUsd,
                 totalRub: payment16thTotalRub,
-            },
-            payment1st: {
-                label: `1 ${monthNames[(currentMonth + 1) % 12]}`,
-                periodLabel: `16-${payment1stEnd.getDate()} ${monthNames[currentMonth]} teslimleri`,
-                start: payment1stStart.toISOString(),
-                end: payment1stEnd.toISOString(),
-                paymentDate: payment1stDate.toISOString(),
-                isPast: false,
-                orderCount: orders1st.length,
-                totalUsd: payment1stTotalUsd,
-                totalRub: payment1stTotalRub,
             },
         });
 

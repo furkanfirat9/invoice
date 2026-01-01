@@ -700,9 +700,9 @@ export default function SiparislerPage() {
   const [error, setError] = useState<string | null>(null);
   const { rates } = useExchangeRates(); // Canlı döviz kurları
 
-  // Yıl ve ay state'leri - varsayılan: Aralık 2025
-  const [selectedYear, setSelectedYear] = useState(2025);
-  const [selectedMonth, setSelectedMonth] = useState(12);
+  // Yıl ve ay state'leri - varsayılan: mevcut ay
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
 
   // Excel import state
   const [isImporting, setIsImporting] = useState(false);
@@ -1487,7 +1487,39 @@ export default function SiparislerPage() {
       {/* Gelecek Ödemeler Kartları */}
       {paymentForecast && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* 16'sı Ödemesi */}
+          {/* 1'i Ödemesi (Geçen ayın 16-31 teslimleri) */}
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl shadow-sm border border-emerald-100 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    📅 {paymentForecast.payment1st.label} Ödemesi
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {paymentForecast.payment1st.periodLabel}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className={`text-2xl font-bold ${paymentForecast.payment1st.totalUsd > 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
+                  ${paymentForecast.payment1st.totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm text-gray-500">
+                  ₽{paymentForecast.payment1st.totalRub.toLocaleString('ru-RU', { minimumFractionDigits: 0 })}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {paymentForecast.payment1st.orderCount} sipariş {paymentForecast.payment1st.isPast ? '✓' : '⏳'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 16'sı Ödemesi (Bu ayın 1-15 teslimleri) */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm border border-blue-100 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1514,38 +1546,6 @@ export default function SiparislerPage() {
                 </p>
                 <p className="text-xs text-gray-400">
                   {paymentForecast.payment16th.orderCount} sipariş {paymentForecast.payment16th.isPast ? '✓' : '⏳'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* 1'i Ödemesi */}
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm border border-purple-100 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">
-                    📅 {paymentForecast.payment1st.label} Ödemesi
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {paymentForecast.payment1st.periodLabel}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className={`text-2xl font-bold ${paymentForecast.payment1st.totalUsd > 0 ? 'text-purple-600' : 'text-gray-400'}`}>
-                  ${paymentForecast.payment1st.totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-sm text-gray-500">
-                  ₽{paymentForecast.payment1st.totalRub.toLocaleString('ru-RU', { minimumFractionDigits: 0 })}
-                </p>
-                <p className="text-xs text-gray-400">
-                  {paymentForecast.payment1st.orderCount} sipariş ⏳
                 </p>
               </div>
             </div>
