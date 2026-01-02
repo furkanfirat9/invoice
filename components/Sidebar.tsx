@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isElif } from "@/lib/auth-utils";
@@ -322,8 +322,8 @@ export default function Sidebar() {
               const isActive = pathname === item.path;
               return (
                 <li key={item.path}>
-                  <button
-                    onClick={() => router.push(item.path)}
+                  <Link
+                    href={item.path}
                     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive
                       ? "bg-blue-600 text-white"
                       : "text-gray-300 hover:bg-slate-800 hover:text-white"
@@ -346,7 +346,7 @@ export default function Sidebar() {
                         />
                       </svg>
                     )}
-                  </button>
+                  </Link>
                 </li>
               );
             });

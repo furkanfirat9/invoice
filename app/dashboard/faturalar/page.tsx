@@ -80,20 +80,7 @@ export default function FaturalarPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Yetki kontrolü - sadece Elif erişebilir
-    if (status === "loading") {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-gray-500">Yükleniyor...</div>
-            </div>
-        );
-    }
-
-    if (!isElif(session?.user?.email)) {
-        router.push("/dashboard");
-        return null;
-    }
-
+    // Year and Month state
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
 
@@ -116,7 +103,79 @@ export default function FaturalarPage() {
     const [conflictLoading, setConflictLoading] = useState(false);
     const [conflictError, setConflictError] = useState<string | null>(null);
 
-    const fetchInvoices = async () => {
+    // Check if user is authorized
+    const isAuthorized = isElif(session?.user?.email);
+
+    // Data fetching effect - runs only when authorized
+    useEffect(() => {
+        if (status === "loading" || !isAuthorized) return;
+
+        const fetchInvoices = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await fetch(`/api/invoices/analysis?year=${selectedYear}&month=${selectedMonth}`);
+                if (!response.ok) {
+                    throw new Error("Fatura verileri alınamadı");
+                }
+                const data = await response.json();
+                setInvoices(data.invoices || []);
+                setStats(data.stats || null);
+            } catch (err: any) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        const fetchConflicts = async () => {
+            setConflictLoading(true);
+            setConflictError(null);
+            try {
+                const response = await fetch(`/api/invoices/date-conflicts?year=${selectedYear}&month=${selectedMonth}`);
+                if (!response.ok) {
+                    throw new Error("Tarih uyumsuzlukları alınamadı");
+                }
+                const data = await response.json();
+                setConflicts(data.conflicts || []);
+                setConflictStats(data.stats || null);
+            } catch (err: any) {
+                setConflictError(err.message);
+            } finally {
+                setConflictLoading(false);
+            }
+        };
+
+        if (activeTab === "analiz") {
+            fetchInvoices();
+        } else {
+            fetchConflicts();
+        }
+    }, [selectedYear, selectedMonth, activeTab, status, isAuthorized]);
+
+    // Handle unauthorized access
+    useEffect(() => {
+        if (status !== "loading" && !isAuthorized) {
+            router.push("/dashboard");
+        }
+    }, [status, isAuthorized, router]);
+
+    // Loading state
+    if (status === "loading") {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-gray-500">Yükleniyor...</div>
+            </div>
+        );
+    }
+
+    // Unauthorized state
+    if (!isAuthorized) {
+        return null;
+    }
+
+    // Helper functions for refresh buttons
+    const handleRefreshInvoices = async () => {
         setLoading(true);
         setError(null);
         try {
@@ -134,7 +193,7 @@ export default function FaturalarPage() {
         }
     };
 
-    const fetchConflicts = async () => {
+    const handleRefreshConflicts = async () => {
         setConflictLoading(true);
         setConflictError(null);
         try {
@@ -151,14 +210,6 @@ export default function FaturalarPage() {
             setConflictLoading(false);
         }
     };
-
-    useEffect(() => {
-        if (activeTab === "analiz") {
-            fetchInvoices();
-        } else {
-            fetchConflicts();
-        }
-    }, [selectedYear, selectedMonth, activeTab]);
 
     // Filtrelenmiş faturalar
     const filteredInvoices = invoices.filter(invoice => {
@@ -266,7 +317,7 @@ export default function FaturalarPage() {
                             ))}
                         </select>
                         <button
-                            onClick={() => activeTab === "analiz" ? fetchInvoices() : fetchConflicts()}
+                            onClick={() => activeTab === "analiz" ? handleRefreshInvoices() : handleRefreshConflicts()}
                             disabled={loading || conflictLoading}
                             className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 transition-colors disabled:opacity-50"
                         >
@@ -438,7 +489,7 @@ export default function FaturalarPage() {
                                 <div className="text-center">
                                     <p className="text-red-600 mb-2">{error}</p>
                                     <button
-                                        onClick={fetchInvoices}
+                                        onClick={handleRefreshInvoices}
                                         className="text-violet-600 hover:underline"
                                     >
                                         Tekrar dene
@@ -710,7 +761,7 @@ export default function FaturalarPage() {
                                 <div className="text-center">
                                     <p className="text-red-600 mb-2">{conflictError}</p>
                                     <button
-                                        onClick={fetchConflicts}
+                                        onClick={handleRefreshConflicts}
                                         className="text-amber-600 hover:underline"
                                     >
                                         Tekrar dene

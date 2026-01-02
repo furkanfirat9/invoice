@@ -52,19 +52,8 @@ export default function DepoPage() {
     const [notifyingItems, setNotifyingItems] = useState<Set<string>>(new Set());
     const [revertingItems, setRevertingItems] = useState<Set<string>>(new Set());
 
-    // Yetki kontrolü - sadece Elif erişebilir
-    if (status === "loading") {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-gray-500">Yükleniyor...</div>
-            </div>
-        );
-    }
-
-    if (!isElif(session?.user?.email)) {
-        router.push("/dashboard");
-        return null;
-    }
+    // Check if user is authorized
+    const isAuthorized = isElif(session?.user?.email);
 
     // Sayfa yüklenme animasyonu
     useEffect(() => {
@@ -73,6 +62,8 @@ export default function DepoPage() {
 
     // Veri çekme fonksiyonu
     const fetchData = useCallback(async () => {
+        if (status === "loading" || !isAuthorized) return;
+
         if (activeTab === "cancellations") {
             setIsLoading(true);
             try {
@@ -117,11 +108,32 @@ export default function DepoPage() {
             }
         }
         // İadeler henüz implement edilmedi
-    }, [activeTab]);
+    }, [activeTab, status, isAuthorized]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // Handle unauthorized access
+    useEffect(() => {
+        if (status !== "loading" && !isAuthorized) {
+            router.push("/dashboard");
+        }
+    }, [status, isAuthorized, router]);
+
+    // Loading state
+    if (status === "loading") {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-gray-500">Yükleniyor...</div>
+            </div>
+        );
+    }
+
+    // Unauthorized state
+    if (!isAuthorized) {
+        return null;
+    }
 
     // Kargo firmasına bildir
     const handleNotifyCarrier = async (item: CancellationItem) => {
