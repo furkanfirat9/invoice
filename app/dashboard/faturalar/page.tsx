@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { isElif } from "@/lib/auth-utils";
 
 // Sekme tipi
-type TabType = "analiz" | "uyumsuzluk";
+type TabType = "analiz" | "uyumsuzluk" | "vkn";
 
 interface Invoice {
     faturaNo: string;
@@ -50,6 +50,29 @@ interface ConflictStats {
     toplamKayit: number;
     uyumsuzKayit: number;
     uyumluKayit: number;
+}
+
+// VKN uyumsuzluğu interface'i
+interface VknConflict {
+    postingNumber: string;
+    alisFaturaNo: string | null;
+    alisFaturaTarihi: string | null;
+    alisSaticiUnvani: string | null;
+    alisSaticiVkn: string | null;
+    alisAliciVkn: string | null;
+    beklenenVkn: string;
+    alisUrunBilgisi: string | null;
+    alisUrunAdedi: string | null;
+    alisKdvHaricTutar: number | null;
+    alisPdfUrl: string | null;
+}
+
+interface VknConflictStats {
+    toplamKayit: number;
+    uyumsuzKayit: number;
+    uyumluKayit: number;
+    farklıVknSayisi: number;
+    vknDagilimi: { [key: string]: number };
 }
 
 const MONTHS = [
@@ -103,6 +126,13 @@ export default function FaturalarPage() {
     const [conflictLoading, setConflictLoading] = useState(false);
     const [conflictError, setConflictError] = useState<string | null>(null);
 
+    // VKN uyumsuzlukları state
+    const [vknConflicts, setVknConflicts] = useState<VknConflict[]>([]);
+    const [vknConflictStats, setVknConflictStats] = useState<VknConflictStats | null>(null);
+    const [vknLoading, setVknLoading] = useState(false);
+    const [vknError, setVknError] = useState<string | null>(null);
+    const [standartVkn, setStandartVkn] = useState<string>("");
+
     // Check if user is authorized
     const isAuthorized = isElif(session?.user?.email);
 
@@ -146,10 +176,31 @@ export default function FaturalarPage() {
             }
         };
 
+        const fetchVknConflicts = async () => {
+            setVknLoading(true);
+            setVknError(null);
+            try {
+                const response = await fetch(`/api/invoices/vkn-conflicts?year=${selectedYear}&month=${selectedMonth}`);
+                if (!response.ok) {
+                    throw new Error("VKN uyumsuzlukları alınamadı");
+                }
+                const data = await response.json();
+                setVknConflicts(data.conflicts || []);
+                setVknConflictStats(data.stats || null);
+                setStandartVkn(data.standartVkn || "");
+            } catch (err: any) {
+                setVknError(err.message);
+            } finally {
+                setVknLoading(false);
+            }
+        };
+
         if (activeTab === "analiz") {
             fetchInvoices();
-        } else {
+        } else if (activeTab === "uyumsuzluk") {
             fetchConflicts();
+        } else if (activeTab === "vkn") {
+            fetchVknConflicts();
         }
     }, [selectedYear, selectedMonth, activeTab, status, isAuthorized]);
 
@@ -208,6 +259,25 @@ export default function FaturalarPage() {
             setConflictError(err.message);
         } finally {
             setConflictLoading(false);
+        }
+    };
+
+    const handleRefreshVknConflicts = async () => {
+        setVknLoading(true);
+        setVknError(null);
+        try {
+            const response = await fetch(`/api/invoices/vkn-conflicts?year=${selectedYear}&month=${selectedMonth}`);
+            if (!response.ok) {
+                throw new Error("VKN uyumsuzlukları alınamadı");
+            }
+            const data = await response.json();
+            setVknConflicts(data.conflicts || []);
+            setVknConflictStats(data.stats || null);
+            setStandartVkn(data.standartVkn || "");
+        } catch (err: any) {
+            setVknError(err.message);
+        } finally {
+            setVknLoading(false);
         }
     };
 
@@ -284,17 +354,6 @@ export default function FaturalarPage() {
             {/* Header */}
             <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <div className="flex items-center justify-between flex-wrap gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center">
-                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Faturalar</h1>
-                            <p className="text-sm text-gray-500">Fatura analizi ve tarih uyumsuzluk kontrolü</p>
-                        </div>
-                    </div>
 
                     {/* Ay/Yıl Seçici */}
                     <div className="flex items-center gap-2">
@@ -317,11 +376,15 @@ export default function FaturalarPage() {
                             ))}
                         </select>
                         <button
-                            onClick={() => activeTab === "analiz" ? handleRefreshInvoices() : handleRefreshConflicts()}
-                            disabled={loading || conflictLoading}
+                            onClick={() => {
+                                if (activeTab === "analiz") handleRefreshInvoices();
+                                else if (activeTab === "uyumsuzluk") handleRefreshConflicts();
+                                else if (activeTab === "vkn") handleRefreshVknConflicts();
+                            }}
+                            disabled={loading || conflictLoading || vknLoading}
                             className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 transition-colors disabled:opacity-50"
                         >
-                            {(loading || conflictLoading) ? "Yükleniyor..." : "Yenile"}
+                            {(loading || conflictLoading || vknLoading) ? "Yükleniyor..." : "Yenile"}
                         </button>
                     </div>
                 </div>
@@ -363,6 +426,25 @@ export default function FaturalarPage() {
                                 {conflictStats && conflictStats.uyumsuzKayit > 0 && (
                                     <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-red-500 text-white animate-pulse">
                                         {conflictStats.uyumsuzKayit}
+                                    </span>
+                                )}
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("vkn")}
+                            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === "vkn"
+                                ? "bg-rose-500 text-white shadow-md"
+                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                }`}
+                        >
+                            <span className="flex items-center gap-2">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                                </svg>
+                                VKN
+                                {vknConflictStats && vknConflictStats.uyumsuzKayit > 0 && (
+                                    <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-red-500 text-white animate-pulse">
+                                        {vknConflictStats.uyumsuzKayit}
                                     </span>
                                 )}
                             </span>
@@ -680,7 +762,7 @@ export default function FaturalarPage() {
                         </div>
                     )}
                 </>
-            ) : (
+            ) : activeTab === "uyumsuzluk" ? (
                 /* Tarih Uyumsuzlukları Sekmesi */
                 <>
                     {/* İstatistik Kartları */}
@@ -903,7 +985,264 @@ export default function FaturalarPage() {
                         </div>
                     )}
                 </>
-            )}
+            ) : activeTab === "vkn" ? (
+                /* VKN Uyumsuzlukları Sekmesi */
+                <>
+                    {/* İstatistik Kartları */}
+                    {vknConflictStats && (
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="bg-white border border-gray-200 rounded-lg p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-gray-900">{vknConflictStats.toplamKayit}</p>
+                                        <p className="text-sm text-gray-500">Toplam Kayıt</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white border border-rose-200 rounded-lg p-4 bg-rose-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-rose-100 rounded-lg flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-rose-600" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-rose-600">{vknConflictStats.uyumsuzKayit}</p>
+                                        <p className="text-sm text-gray-500">VKN Uyumsuzluğu</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white border border-emerald-200 rounded-lg p-4 bg-emerald-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-emerald-600">{vknConflictStats.uyumluKayit}</p>
+                                        <p className="text-sm text-gray-500">Uyumlu Kayıt</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white border border-violet-200 rounded-lg p-4 bg-violet-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-violet-600">{vknConflictStats.farklıVknSayisi}</p>
+                                        <p className="text-sm text-gray-500">Farklı VKN</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Bilgilendirme */}
+                    <div className="bg-rose-50 border border-rose-200 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                            <svg className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                            <div>
+                                <p className="text-sm font-medium text-rose-800">VKN Uyumsuzluğu Nedir?</p>
+                                <p className="text-sm text-rose-700 mt-1">
+                                    Alış faturasındaki "Alıcı VKN" bilgisi, beklenen standart VKN (<span className="font-mono font-bold">{standartVkn}</span>) ile eşleşmeyen kayıtlar burada listelenir.
+                                    Bu durum, faturanın farklı bir şirkete/kişiye kesildiği anlamına gelebilir ve muhasebe kontrolü gerektirebilir.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* VKN Dağılımı */}
+                    {vknConflictStats && Object.keys(vknConflictStats.vknDagilimi).length > 0 && (
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-3">VKN Dağılımı</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {Object.entries(vknConflictStats.vknDagilimi).map(([vkn, count]) => (
+                                    <span key={vkn} className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full text-sm">
+                                        <span className="font-mono text-gray-700">{vkn}</span>
+                                        <span className="px-1.5 py-0.5 bg-rose-500 text-white text-xs rounded-full font-bold">{count}</span>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Tablo */}
+                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                        {vknLoading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <div className="flex items-center gap-3">
+                                    <svg className="w-6 h-6 animate-spin text-rose-600" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span className="text-gray-600">VKN uyumsuzlukları yükleniyor...</span>
+                                </div>
+                            </div>
+                        ) : vknError ? (
+                            <div className="flex items-center justify-center py-12">
+                                <div className="text-center">
+                                    <p className="text-red-600 mb-2">{vknError}</p>
+                                    <button
+                                        onClick={handleRefreshVknConflicts}
+                                        className="text-rose-600 hover:underline"
+                                    >
+                                        Tekrar dene
+                                    </button>
+                                </div>
+                            </div>
+                        ) : vknConflicts.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12">
+                                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                                    <svg className="w-8 h-8 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <p className="text-gray-600 font-medium">VKN uyumsuzluğu bulunamadı</p>
+                                <p className="text-gray-400 text-sm">Bu dönem için tüm alıcı VKN'leri uyumlu</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-gray-50 border-b border-gray-200">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Gönderi No</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Fatura No</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tarih</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Satıcı</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Alıcı VKN</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ürün</th>
+                                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Tutar</th>
+                                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">PDF</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {vknConflicts.map((conflict) => (
+                                            <tr key={conflict.postingNumber} className="hover:bg-rose-50 bg-rose-50/30">
+                                                <td className="px-4 py-3">
+                                                    <span className="font-mono text-sm font-medium text-gray-900">{conflict.postingNumber}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="font-mono text-sm text-gray-700">{conflict.alisFaturaNo || "-"}</span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-600">
+                                                    {conflict.alisFaturaTarihi ? new Date(conflict.alisFaturaTarihi).toLocaleDateString("tr-TR") : "-"}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-900 truncate max-w-[150px]" title={conflict.alisSaticiUnvani || ""}>
+                                                            {conflict.alisSaticiUnvani || "-"}
+                                                        </p>
+                                                        {conflict.alisSaticiVkn && (
+                                                            <p className="text-xs text-gray-400 font-mono">{conflict.alisSaticiVkn}</p>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-700 font-mono">
+                                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                            </svg>
+                                                            {conflict.alisAliciVkn}
+                                                        </span>
+                                                        <span className="text-xs text-gray-400">
+                                                            Beklenen: <span className="font-mono">{conflict.beklenenVkn}</span>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <p className="text-sm text-gray-700 truncate max-w-[150px]" title={conflict.alisUrunBilgisi || ""}>
+                                                        {conflict.alisUrunBilgisi || "-"}
+                                                    </p>
+                                                    {conflict.alisUrunAdedi && (
+                                                        <p className="text-xs text-gray-400">{conflict.alisUrunAdedi} adet</p>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    {conflict.alisKdvHaricTutar ? (
+                                                        <span className="text-sm font-medium text-gray-900">
+                                                            {conflict.alisKdvHaricTutar.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-sm text-gray-400">-</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <button
+                                                        onClick={() => conflict.alisPdfUrl && openPdfModal(conflict.alisPdfUrl)}
+                                                        disabled={!conflict.alisPdfUrl}
+                                                        className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors ${conflict.alisPdfUrl
+                                                            ? "text-violet-600 bg-violet-50 hover:bg-violet-100 cursor-pointer"
+                                                            : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                                                            }`}
+                                                        title={conflict.alisPdfUrl ? "PDF Görüntüle" : "PDF yok"}
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                        </svg>
+                                                        PDF
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* PDF Modal (shared) */}
+                    {pdfModalOpen && selectedPdfUrl && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                                    <h3 className="text-lg font-semibold text-gray-900">Fatura PDF</h3>
+                                    <div className="flex items-center gap-2">
+                                        <a
+                                            href={selectedPdfUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-violet-600 bg-violet-50 rounded-lg hover:bg-violet-100 transition-colors"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                            Yeni Sekmede Aç
+                                        </a>
+                                        <button
+                                            onClick={() => setPdfModalOpen(false)}
+                                            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex-1 overflow-hidden">
+                                    <iframe
+                                        src={selectedPdfUrl}
+                                        className="w-full h-[70vh]"
+                                        title="Fatura PDF"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </>
+            ) : null}
         </div>
     );
 }
